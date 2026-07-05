@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.user.user.mapper.UserProfileMapper">
+
+<select id="selectByUserId" resultType="org.example.user.user.entity.UserProfile">
+    SELECT id, user_id, nickname, avatar, phone, email, gender, age, region, create_time, update_time, bio
+    FROM user_profile
+    WHERE user_id = #{userId}
+</select>
+
+
+<update id="updateUserProfile">
+    UPDATE user_profile
+    <set>
+        <if test="dto.nickname != null">nickname = #{dto.nickname},</if>
+        <if test="dto.avatar != null">avatar = #{dto.avatar},</if>
+        <if test="dto.phone != null">phone = #{dto.phone},</if>
+        <if test="dto.email != null">email = #{dto.email},</if>
+        <if test="dto.gender != null">gender = #{dto.gender},</if>
+        <if test="dto.age != null">age = #{dto.age},</if>
+        <if test="dto.region != null">region = #{dto.region},</if>
+        <if test="dto.bio != null">bio = #{dto.bio},</if>
+        update_time = NOW()
+    </set>
+    WHERE user_id = #{userId}
+</update>
+</mapper>

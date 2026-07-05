@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.community.likerecord.mapper.LikeRecordMapper">
+
+    <select id="selectByUserAndPostId" resultType="org.example.community.likerecord.entity.LikeRecord">
+        SELECT id, target_type, target_id, user_id, create_time
+        FROM like_record
+        WHERE user_id = #{userId} AND target_id = #{postId} AND target_type = 'post'
+    </select>
+
+    <delete id="deleteByUserAndPostId">
+        DELETE FROM like_record
+        WHERE user_id = #{userId} AND target_id = #{postId} AND target_type = 'post'
+    </delete>
+
+    <select id="selectCountByPostId" resultType="long">
+        SELECT COUNT(*) FROM like_record
+        WHERE target_id = #{postId} AND target_type = 'post'
+    </select>
+
+    <select id="selectByUserAndCommentId" resultType="org.example.community.likerecord.entity.LikeRecord">
+        SELECT id, target_type, target_id, user_id, create_time
+        FROM like_record
+        WHERE user_id = #{userId} AND target_id = #{commentId} AND target_type = 'comment'
+    </select>
+
+    <delete id="deleteByUserAndCommentId">
+        DELETE FROM like_record
+        WHERE user_id = #{userId} AND target_id = #{commentId} AND target_type = 'comment'
+    </delete>
+
+    <select id="selectCountByCommentId" resultType="long">
+        SELECT COUNT(*) FROM like_record
+        WHERE target_id = #{commentId} AND target_type = 'comment'
+    </select>
+
+</mapper>

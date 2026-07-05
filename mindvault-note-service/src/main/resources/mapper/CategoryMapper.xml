@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.note.category.mapper.CategoryMapper">    <select id="selectByParentId" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time
+        FROM category
+        WHERE user_id = #{userId}
+        <if test="parentId != null">
+            AND parent_id = #{parentId}
+        </if>
+        <if test="parentId == null">
+            AND parent_id IS NULL
+        </if>
+          AND is_deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 硬删目录（不走软删除） -->
+    <delete id="hardDeleteById">
+        DELETE FROM category WHERE id = #{id}
+    </delete>
+
+    <!-- 删目录下的所有文档 -->
+    <delete id="deleteByCategoryId">
+        DELETE FROM document WHERE category_id = #{categoryId}
+    </delete>
+
+    <!-- 查目录下的所有文档 ID（用于删标签关联，含已删除的） -->
+    <select id="selectIdsByCategoryId" resultType="java.lang.Long">
+        SELECT id FROM document WHERE category_id = #{categoryId}
+    </select>
+
+    <!-- 删文档的所有标签关联 -->
+    <delete id="deleteByDocumentId">
+        DELETE FROM document_tag WHERE document_id = #{documentId}
+    </delete>
+
+    <!--查该用户所有目录-->
+    <select id="selectByUserId" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time
+        FROM category
+        WHERE user_id = #{userId} AND is_deleted = 0
+        ORDER BY create_time
+    </select>
+
+    <!-- 软删目录下的所有文档（标记为已删除进回收站） -->
+    <update id="softDeleteDocumentByCategoryId">
+        UPDATE document
+        SET is_deleted = 1, deleted_at = NOW()
+        WHERE category_id = #{categoryId}
+    </update>
+
+    <!-- 恢复被软删除的目录 -->
+    <update id="restoreById">
+        UPDATE category
+        SET is_deleted = 0, deleted_at = NULL
+        WHERE id = #{id}
+    </update>
+
+    <!-- 恢复目录下被软删除的文档 -->
+    <update id="restoreDocumentByCategoryId">
+        UPDATE document
+        SET is_deleted = 0, deleted_at = NULL
+        WHERE category_id = #{categoryId}
+    </update>
+
+    <!-- 通过id查目录（包含已删除的） -->
+    <select id="selectByIdIncludeDeleted" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time, is_deleted, deleted_at
+        FROM category
+        WHERE id = #{id}
+    </select>
+
+    <!-- 通过父目录id查目录（包含已删除的） -->
+    <select id="selectByParentIdIncludeDeleted" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time, is_deleted, deleted_at
+        FROM category
+        WHERE user_id = #{userId}
+        <if test="parentId != null">
+            AND parent_id = #{parentId}
+        </if>
+        <if test="parentId == null">
+            AND parent_id IS NULL
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 通过用户id查已删除的目录（回收站用） -->
+    <select id="selectDeletedByUserId" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time, is_deleted, deleted_at
+        FROM category
+        WHERE user_id = #{userId} AND is_deleted = 1
+        ORDER BY deleted_at DESC
+    </select>
+    <!-- 查用户所有目录（含已删除），用于递归删除时一次性加载到内存 -->
+    <select id="selectAllByUserId" resultType="org.example.note.category.entity.Category">
+        SELECT id, name, parent_id, user_id, create_time, is_deleted, deleted_at
+        FROM category
+        WHERE user_id = #{userId}
+        ORDER BY create_time
+    </select>
+</mapper>

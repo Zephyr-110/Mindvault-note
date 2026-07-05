@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.community.post.mapper.PostMapper">
+
+    <select id="selectFeedPage" resultType="org.example.community.post.entity.Post">
+        SELECT id, title, content, author_id, visibility, original_post_id, create_time
+        FROM post
+        WHERE visibility = #{visibility}
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

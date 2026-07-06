@@ -35,8 +35,8 @@ export function connect(userId) {
             resolve(stompClient)
             return
         }
-        const wsUrl = `${BASE_URL}/ws?token=${getToken()}`
-        const socket = new WebSocket(wsUrl)
+        const wsUrl = `${BASE_URL}/ws`
+        const socket = new WebSocket(wsUrl, ['v10.stomp', 'jwt.' + getToken()])
         stompClient = Stomp.over(socket)
         stompClient.connect({}, () => {
             console.log('WebSocket 连接成功')

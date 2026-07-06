@@ -52,6 +52,7 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public MessageVO sendInternal(Long senderId, SendMessageDTO dto) {
         //校验
         if (senderId == null) {

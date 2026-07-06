@@ -2,6 +2,8 @@ server:
   port: 8082
 
 spring:
+  profiles:
+    active: local
   application:
     name: mindvault
   datasource:
@@ -9,12 +11,6 @@ spring:
     username: root
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  jackson:
-    visibility:
-      field: any
-      getter: any
-      setter: any
-      is-getter: any
   data:
     redis:
       host: 127.0.0.1
@@ -49,14 +45,14 @@ springdoc:
     persist-authorization: true
   packages-to-scan: org.example
   paths-to-match: /**
-
+#这里也是
 aliyun:
   oss:
     endpoint: oss-cn-beijing.aliyuncs.com
-    access-key-id: ${OSS_ACCESS_KEY:}
-    access-key-secret: ${OSS_ACCESS_SECRET:}
+    access-key-id: ${OSS_ACCESS_KEY}
+    access-key-secret: ${OSS_ACCESS_SECRET}
     bucket-name: ${OSS_BUCKET:mindvault-files}
-
+#这里冒号后不给默认值，防止给空字符串造成异常
 jwt:
-  secret: ${JWT_SECRET:}
+  secret: ${JWT_SECRET}
   expiration: 86400000

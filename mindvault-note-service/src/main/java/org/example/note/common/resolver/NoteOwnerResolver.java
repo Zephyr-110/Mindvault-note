@@ -50,8 +50,4 @@ public class NoteOwnerResolver implements ResourceOwnerResolver {
             default -> throw new BusinessException(500, "不支持该资源类型: " + resourceType);
         };
     }
-
-    private String getCurrentType() {
-        throw new UnsupportedOperationException();
-    }
 }

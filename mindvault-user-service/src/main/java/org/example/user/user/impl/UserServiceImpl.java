@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -35,6 +36,7 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redis;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UserVO register(RegisterDTO registerDTO) {
         if (userMapper.selectByUsername(registerDTO.getUsername()) != null)
             throw new BusinessException(400, "用户名已存在");
@@ -63,7 +65,7 @@ public class UserServiceImpl implements UserService {
         if (user == null || !PasswordUtil.matches(loginDTO.getPassword(), user.getPassword()))
             throw new BusinessException(400, "用户名或密码输入错误！");
         UserProfile userProfile = userProfileMapper.selectByUserId(user.getId());
-        //如果用户个人信息为空，补建用户个人信息
+        //如果用户个人信息为空，补充用户个人信息
         if (userProfile == null) {
             userProfile = new UserProfile();
             userProfile.setUserId(user.getId());
@@ -93,6 +95,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void changeUsername(ChangeUsernameDTO dto) {
         User user = userMapper.selectById(UserContext.getUserId());
         if (userMapper.selectByUsername(dto.getNewUsername()) != null)
@@ -115,21 +118,21 @@ public class UserServiceImpl implements UserService {
      * 注册时初始化用户默认设置
      */
     private void initDefaultSettings(Long userId) {
-        java.util.Map<String, String> defaults = java.util.Map.ofEntries(
-                java.util.Map.entry("appearance.theme", "default"),
-                java.util.Map.entry("appearance.fontSize", "medium"),
-                java.util.Map.entry("editor.autoSave", "true"),
-                java.util.Map.entry("editor.defaultView", "normal"),
-                java.util.Map.entry("notification.like", "true"),
-                java.util.Map.entry("notification.comment", "true"),
-                java.util.Map.entry("notification.reply", "true"),
-                java.util.Map.entry("notification.follow", "true"),
-                java.util.Map.entry("notification.favorite", "true"),
-                java.util.Map.entry("privacy.profileVisibility", "public"),
-                java.util.Map.entry("privacy.showEmail", "true"),
-                java.util.Map.entry("privacy.allowStrangerChat", "true")
+        Map<String, String> defaults = Map.ofEntries(
+                Map.entry("appearance.theme", "default"),
+                Map.entry("appearance.fontSize", "medium"),
+                Map.entry("editor.autoSave", "true"),
+                Map.entry("editor.defaultView", "normal"),
+                Map.entry("notification.like", "true"),
+                Map.entry("notification.comment", "true"),
+                Map.entry("notification.reply", "true"),
+                Map.entry("notification.follow", "true"),
+                Map.entry("notification.favorite", "true"),
+                Map.entry("privacy.profileVisibility", "public"),
+                Map.entry("privacy.showEmail", "true"),
+                Map.entry("privacy.allowStrangerChat", "true")
         );
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
         for (var entry : defaults.entrySet()) {
             UserSetting setting = new UserSetting();
             setting.setUserId(userId);

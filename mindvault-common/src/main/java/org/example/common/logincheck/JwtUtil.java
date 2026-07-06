@@ -20,9 +20,20 @@ public class JwtUtil {
 
     //构造方法
     public JwtUtil(@Value("${jwt.secret}") String secret,
-                   @Value("${jwt.expiration}") long expiration){
-        //创建实例时初始化密钥和过期时间
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+                   @Value("${jwt.expiration}") long expiration) {
+        //先校验是不是没拿到密钥
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT secret 未配置，请设置环境变量 JWT_SECRET 或在 application-local.yaml 中配置 jwt.secret");
+        }
+        //再校验密钥长度是否足够
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                    "JWT secret 长度不足，当前 " + keyBytes.length + " 字节，至少需要 32 字节（256 bits）");
+        }
+        //初始化密钥
+        this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.expiration = expiration;
     }
     //生成JWT令牌

@@ -5,8 +5,6 @@ import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapp
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.common.annotation.CheckOwner;
-import org.example.common.annotation.CheckResource;
 import org.example.common.exception.BusinessException;
 import org.example.common.logincheck.UserContext;
 import org.example.community.follow.FollowService;

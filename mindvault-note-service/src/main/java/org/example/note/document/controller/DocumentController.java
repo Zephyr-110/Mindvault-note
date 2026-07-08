@@ -5,11 +5,13 @@ import lombok.RequiredArgsConstructor;
 import org.example.common.result.Result;
 import org.example.note.document.DocumentService;
 import org.example.note.document.dto.*;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Validated
 public class DocumentController {
 
     private final DocumentService documentService;

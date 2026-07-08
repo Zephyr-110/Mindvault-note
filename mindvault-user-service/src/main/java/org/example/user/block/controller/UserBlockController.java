@@ -8,11 +8,13 @@ import org.example.user.block.dto.IsBlockedDTO;
 import org.example.user.block.dto.ListUserBlocksDTO;
 import org.example.user.block.service.UserBlockService;
 import org.example.user.block.vo.UserBlockVO;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user-block")
+@Validated
 public class UserBlockController {
 
     private final UserBlockService userBlockService;

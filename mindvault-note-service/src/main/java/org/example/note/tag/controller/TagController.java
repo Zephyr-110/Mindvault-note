@@ -6,12 +6,14 @@ import org.example.common.result.Result;
 import org.example.note.tag.TagService;
 import org.example.note.tag.dto.CreateTagDTO;
 import org.example.note.tag.dto.DeleteTagDTO;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Validated
 public class TagController {
 
     private final TagService tagService;

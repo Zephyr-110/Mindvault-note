@@ -11,11 +11,13 @@ import org.example.community.post.dto.FeedDTO;
 import org.example.community.post.dto.PostDetailDTO;
 import org.example.common.result.PageResult;
 import org.example.community.post.vo.PostVO;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/community/post")
+@Validated
 public class PostController {
 
     private final PostService postService;

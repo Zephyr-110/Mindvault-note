@@ -1,6 +1,7 @@
 package org.example.common.exception;
 
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.example.common.result.Result;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -31,12 +32,22 @@ public class GlobalExceptionHandler {
         return Result.error(500, "服务器内部错误");
     }
 
-    // 捕获参数校验异常
+    // 捕获 @RequestBody 参数校验异常
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public Result<?> handleValidation(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors()
                 .stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return Result.error(400, message);
+    }
+
+    // 捕获 query params / path variable 参数校验异常（@Validated 触发）
+    @ExceptionHandler(ConstraintViolationException.class)
+    public Result<?> handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations()
+                .stream()
+                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                 .collect(Collectors.joining(", "));
         return Result.error(400, message);
     }

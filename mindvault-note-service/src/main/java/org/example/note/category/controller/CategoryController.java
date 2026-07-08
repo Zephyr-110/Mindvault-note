@@ -5,11 +5,13 @@ import lombok.RequiredArgsConstructor;
 import org.example.note.category.CategoryService;
 import org.example.note.category.dto.*;
 import org.example.common.result.Result;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Validated
 public class CategoryController {
 
     private final CategoryService categoryService;

@@ -6,6 +6,7 @@ import org.example.common.result.Result;
 import org.example.user.setting.dto.ListUserSettingDTO;
 import org.example.user.setting.dto.UpdateUserSettingDTO;
 import org.example.user.setting.service.UserSettingService;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/user/setting")
 @RequiredArgsConstructor
+@Validated
 public class UserSettingController {
 
     private final UserSettingService userSettingService;

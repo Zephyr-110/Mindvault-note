@@ -1,26 +1,42 @@
 package org.example.common.config;
 
-
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.common.auth.CredentialsProvider;
+import com.aliyun.oss.common.auth.DefaultCredentialProvider;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "aliyun.oss")
 public class OssConfig {
-    private String endpoint;//阿里云OSS的endpoint,地区
-    private String accessKeyId;//阿里云OSS的accessKeyId
-    private String accessKeySecret;//阿里云OSS的accessKeySecret
-    private String bucketName;//容器名
+    private String endpoint;
+    private String accessKeyId;
+    private String accessKeySecret;
+    private String bucketName;
 
     @Bean
-    public OSS ossClient() {
-        //创建OSSClient实例。
-        return new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+    public CredentialsProvider credentialsProvider() {
+        // 启动时就校验，避免运行时才报错
+        if (accessKeyId == null || accessKeyId.isBlank()) {
+            throw new IllegalStateException("请设置环境变量 ALIYUN_ACCESS_KEY_ID");
+        }
+        if (accessKeySecret == null || accessKeySecret.isBlank()) {
+            throw new IllegalStateException("请设置环境变量 ALIYUN_ACCESS_KEY_SECRET");
+        }
+
+        log.info("OSS凭证已加载，Bucket: {}", bucketName);
+        return new DefaultCredentialProvider(accessKeyId, accessKeySecret);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public OSS ossClient(CredentialsProvider credentialsProvider) {
+        // 使用 CredentialsProvider，更安全
+        return new OSSClientBuilder().build(endpoint, credentialsProvider);
     }
 }
-//用于阿里云OSS的配置类

@@ -36,6 +36,10 @@ public class JwtUtil {
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.expiration = expiration;
     }
+    //获取总过期时间，给拦截器续期用
+    public long getTotalExpiration() {
+        return expiration;
+    }
     //生成JWT令牌
     public String generateToken(Long userId){
         Date now = new Date();

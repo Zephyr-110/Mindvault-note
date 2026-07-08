@@ -9,6 +9,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.example.common.annotation.RateLimit;
 import org.example.common.exception.BusinessException;
+import org.example.common.logincheck.UserContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -31,20 +32,36 @@ public class RateLimitAspect {
         HttpServletRequest request = attributes.getRequest();
         //获取客户端真实IP
         String ip = getClientIp(request);
-        //拼redisKey
-        String redisKey = "rate_limit:" + rateLimit.key() + ":" + ip;
-        //原子自增，返回自增后的值
-        Long count = redis.opsForValue().increment(redisKey);
-        //如果是第一次访问，则设置过期时间为window
-        if(count == 1){
-            redis.expire(redisKey, Duration.ofSeconds(rateLimit.window()));
+        
+        //IP维度限流：防止单机多账号刷接口
+        String ipKey = "rate_limit:ip:" + rateLimit.key() + ":" + ip;
+        boolean ipOverLimit = isOverLimit(ipKey, rateLimit);
+        
+        //用户维度限流：防止同一账号多IP刷接口，只对已登录用户生效
+        boolean userOverLimit = false;
+        Long userId = UserContext.getUserId();
+        if (userId != null) {
+            String userKey = "rate_limit:user:" + rateLimit.key() + ":" + userId;
+            userOverLimit = isOverLimit(userKey, rateLimit);
         }
-        //超限直接拒绝
-        if(count > rateLimit.limit()){
+        
+        //任意一个维度超限，直接拒绝
+        if (ipOverLimit || userOverLimit) {
             throw new BusinessException(429, "系统繁忙，请稍后再试");
         }
-        //没超限就放行
+        
+        //两个维度都没超限，放行
         return joinPoint.proceed();
+    }
+    
+    //检查指定key是否超限，incr + 设过期 + 判断
+    private boolean isOverLimit(String key, RateLimit rateLimit) {
+        Long count = redis.opsForValue().increment(key);
+        //第一次访问设置过期时间
+        if (count == 1) {
+            redis.expire(key, Duration.ofSeconds(rateLimit.window()));
+        }
+        return count > rateLimit.limit();
     }
 
     private String getClientIp(HttpServletRequest request) {

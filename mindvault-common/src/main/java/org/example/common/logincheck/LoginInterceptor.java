@@ -48,6 +48,12 @@ public class LoginInterceptor implements HandlerInterceptor {
         Long userId = jwtUtil.getUserIdFromToken(token);
         //设置用户ID
         UserContext.setUserId(userId);
+        //自动续期：剩余时间不足一半时，返回新token
+        long remaining = jwtUtil.getRemainingExpiration(token);
+        if (remaining > 0 && remaining < jwtUtil.getTotalExpiration() / 2) {
+            String newToken = jwtUtil.generateToken(userId);
+            response.setHeader("X-New-Token", newToken);
+        }
         return true;
     }
 

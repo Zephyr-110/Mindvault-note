@@ -12,12 +12,13 @@ import org.example.common.exception.BusinessException;
 import org.example.common.util.AspectUtil;
 import org.example.community.comment.entity.Comment;
 import org.example.community.comment.mapper.CommentMapper;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
 
 @Slf4j
 @Component
 @Aspect
+@Order(1)
 @RequiredArgsConstructor
 public class CheckCommentAspect {
 

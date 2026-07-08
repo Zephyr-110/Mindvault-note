@@ -7,7 +7,19 @@ const api = axios.create({
 
 // 响应拦截器 - 直接返回后端返回的 data，401 时跳转登录
 api.interceptors.response.use(
-    response => response.data,
+    response => {
+      // 自动续期：后端返回新 token 时替换 localStorage
+      const newToken = response.headers['x-new-token']
+      if (newToken) {
+        const userInfo = localStorage.getItem('userInfo')
+        if (userInfo) {
+          const user = JSON.parse(userInfo)
+          user.token = newToken
+          localStorage.setItem('userInfo', JSON.stringify(user))
+        }
+      }
+      return response.data
+    },
     error => {
       if (error.response && error.response.status === 401) {
         localStorage.removeItem('userInfo')

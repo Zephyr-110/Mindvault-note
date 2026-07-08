@@ -78,9 +78,6 @@ public class DocumentServiceImpl implements DocumentService {
     public PageResult<DocumentVO> listDocuments(ListDocumentDTO listDocumentDTO) {
         Long targetUserId = listDocumentDTO.getUserId() != null
                 ? listDocumentDTO.getUserId() : UserContext.getUserId();
-        //前端不传页面数据的话需要赋默认值
-        if(listDocumentDTO.getPage() == null) listDocumentDTO.setPage(1L);
-        if(listDocumentDTO.getSize() == null) listDocumentDTO.setSize(10L);
         //创建新的VO对象
         PageResult<DocumentVO> pageResult = new PageResult<>();
         //通过转化，获取总条数

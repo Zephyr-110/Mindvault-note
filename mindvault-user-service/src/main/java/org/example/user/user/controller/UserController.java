@@ -23,20 +23,20 @@ public class UserController {
 
     @RateLimit(key = "login")
     @PostMapping("/user/login")
-    public Result<UserVO> login(@Valid LoginDTO loginDTO) {
+    public Result<UserVO> login(@Valid @RequestBody LoginDTO loginDTO) {
         return Result.success(userService.login(loginDTO));
     }
 
     @RateLimit(key = "changePassword", limit = 3, window = 300)
     @PutMapping("/user/changePassword")
-    public Result<?> changePassword(@Valid ChangePasswordDTO changePasswordDTO) {
+    public Result<?> changePassword(@Valid @RequestBody ChangePasswordDTO changePasswordDTO) {
         userService.changePassword(changePasswordDTO);
         return Result.success();
     }
 
     @RateLimit(key = "changeUsername", limit = 3, window = 300)
     @PutMapping("/user/changeUsername")
-    public Result<?> changeUsername(@Valid ChangeUsernameDTO changeUsernameDTO) {
+    public Result<?> changeUsername(@Valid @RequestBody ChangeUsernameDTO changeUsernameDTO) {
         userService.changeUsername(changeUsernameDTO);
         return Result.success();
     }

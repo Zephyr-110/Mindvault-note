@@ -149,11 +149,8 @@ public class FollowServiceImpl implements FollowService {
     @Override
     public PageResult<FollowUserVO> listFollowee(ListFolloweeDTO dto){
         Long targetUserId = dto.getUserId() != null ? dto.getUserId() : UserContext.getUserId();
-        //兜底默认值，防止前端不传 page/size 导致 total 为 0
-        long pageNum = dto.getPage() != null ? dto.getPage() : 1L;
-        long pageSize = dto.getSize() != null ? dto.getSize() : 10L;
         //查询分页列表
-        Page<Follow> page = new Page<>(pageNum, pageSize);
+        Page<Follow> page = new Page<>(dto.getPage(), dto.getSize());
         Page<Follow> result  = followMapper.selectPage(page,
                 new LambdaQueryWrapper<Follow>()
                         .eq(Follow::getFollowerId, targetUserId)
@@ -164,7 +161,6 @@ public class FollowServiceImpl implements FollowService {
                 vo.setUserId(follow.getFolloweeId());
                 vo.setNickname(userService.getNickname(follow.getFolloweeId()));
                 vo.setAvatar(userService.getAvatar(follow.getFolloweeId()));
-                //这个后期得处理
                 vo.setBio(null);
                 //判断对方是否回关
                 Follow ifFollow = followMapper.selectOne(new LambdaQueryWrapper<Follow>()
@@ -180,10 +176,7 @@ public class FollowServiceImpl implements FollowService {
     @Override
     public PageResult<FollowUserVO> listFollower(ListFollowerDTO dto) {
         Long targetUserId = dto.getUserId() != null ? dto.getUserId() : UserContext.getUserId();
-        //兜底默认值，防止前端不传 page/size 导致 total 为 0
-        long pageNum = dto.getPage() != null ? dto.getPage() : 1L;
-        long pageSize = dto.getSize() != null ? dto.getSize() : 10L;
-        Page<Follow> page = new Page<>(pageNum, pageSize);
+        Page<Follow> page = new Page<>(dto.getPage(), dto.getSize());
         Page<Follow> result = followMapper.selectPage(page,
                 new LambdaQueryWrapper<Follow>()
                         .eq(Follow::getFolloweeId, targetUserId)

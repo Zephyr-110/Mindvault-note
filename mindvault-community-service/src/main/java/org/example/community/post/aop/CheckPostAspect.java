@@ -11,13 +11,13 @@ import org.example.common.exception.BusinessException;
 import org.example.common.util.AspectUtil;
 import org.example.community.post.entity.Post;
 import org.example.community.post.mapper.PostMapper;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
-import java.lang.reflect.Field;
 
 @Slf4j
 @Aspect
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class CheckPostAspect {
 

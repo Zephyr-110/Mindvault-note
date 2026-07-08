@@ -1,120 +1,61 @@
+🚀 v0.0.2 — 首个公开版本
+MindVault 是一个面向个人知识管理与社区分享的在线笔记平台，支持 Markdown 编辑、全文搜索、树形目录、社区互动与实时私信。
 
-采用 **API / Service 分离** 的多模块 Maven 架构，接口与实现解耦，依赖方向可控。
+✨ 已实现功能
+📝 笔记管理
+功能	说明
+文档 CRUD	创建、编辑、删除、查看文档
+全文搜索	MySQL FULLTEXT 索引，支持搜索片段高亮
+树形目录	多级分类，支持 2D 列表 / 3D 力导向图两种视图
+标签管理	文档支持多标签关联
+回收站	软删除，支持恢复
+👥 社区互动
+功能	说明
+帖子	发布帖子，可关联文档附件
+评论	二级评论，支持回复
+互动	点赞、收藏、关注
+通知	点赞/评论/关注通知，支持已读标记
+💬 实时通信
+一对一私信聊天，基于 WebSocket 实时推送
+👤 用户系统
+注册 / 登录 / JWT 认证
+个人资料编辑（昵称、头像、邮箱、性别、简介）
+偏好设置（主题、字体、编辑器视图、隐私控制）
+用户拉黑
+🏗️ 技术栈
+层级	技术
+后端框架	Spring Boot 4.0.6 + Spring MVC
+ORM	MyBatis-Plus 3.5.16
+认证	JWT 0.12.6（自动续期 + Redis 黑名单）
+缓存	Spring Cache + Redis
+数据库	MySQL 8.0
+对象存储	阿里云 OSS
+实时通信	WebSocket（Spring STOMP over SockJS）
+前端	Vue 3 + Vite + Element Plus + Three.js
+API 文档	SpringDoc OpenAPI（Swagger UI）
+🔒 安全特性
+声明式资源权限校验（@CheckOwner + 策略模式）
+接口限流（@RateLimit）
+JWT 自动续期 + 登出黑名单
+🚀 快速开始
 
----
-
-## 🚀 快速开始
-
-### 环境要求
-
-- JDK 25+
-- MySQL 8.0+
-- Redis 7.0+
-- Maven 3.9+
-- Node.js 20+
-
-### 1. 克隆项目
-
-```bash
+bash
 git clone https://github.com/Zephyr-110/Mindvault-note.git
 cd Mindvault-note
-```
 
-### 2. 初始化数据库
+# 创建数据库
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS mindvault DEFAULT CHARSET utf8mb4;"
 
-```sql
-CREATE DATABASE IF NOT EXISTS mindvault DEFAULT CHARSET utf8mb4;
-```
+# 配置 application-local.yaml
 
-项目启动后 MyBatis-Plus 会自动建表。
+# 启动后端（8082）
+cd mindvault-app && mvn spring-boot:run
 
-### 3. 配置密钥
-
-创建 `mindvault-app/src/main/resources/application-local.yaml`：
-
-```yaml
-spring:
-  datasource:
-    password: 你的数据库密码
-  data:
-    redis:
-      password: 你的Redis密码
-
-aliyun:
-  oss:
-    access-key-id: 你的AccessKey
-    access-key-secret: 你的Secret
-
-jwt:
-  secret: 你的JWT密钥
-```
-
-### 4. 启动后端
-
-```bash
-cd mindvault-app
-mvn spring-boot:run
-```
-
-后端运行在 `http://localhost:8082`，API 文档：`http://localhost:8082/swagger-ui.html`
-
-### 5. 启动前端
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-前端运行在 `http://localhost:5173`
-
----
-
-## 📡 API 概览
-
-| 模块 | 端点前缀 | 功能 |
-|------|----------|------|
-| 用户 | `/api/user/*` | 注册、登录、登出、密码修改 |
-| 个人资料 | `/api/user/profile/*` | 资料查询与编辑 |
-| 文档 | `/api/document/*` | 笔记 CRUD + 回收站 |
-| 目录 | `/api/category/*` | 目录树管理 |
-| 标签 | `/api/tag/*` | 标签管理 |
-| 文件 | `/api/file/*` | OSS 文件上传 |
-| 帖子 | `/api/community/post/*` | 帖子发布、详情、Feed 流 |
-| 评论 | `/api/community/comment/*` | 评论管理 |
-| 点赞 | `/api/community/like-record/*` | 点赞切换 |
-| 收藏 | `/api/community/favorite/*` | 收藏管理 |
-| 关注 | `/api/community/follow/*` | 关注/粉丝 |
-| 私信 | `/api/community/message/*` | 一对一私信 |
-| 通知 | `/api/community/notification/*` | 系统通知 |
-
----
-
-## 🧩 设计亮点
-
-- **策略模式权限校验** — `ResourceOwnerResolver` 接口 + `@CheckOwner` 注解，不同模块可插拔式注入
-- **AOP 双层防护** — 接口限流 + 资源鉴权双切面，声明式注解即可启用
-- **避免重复查库** — `ValidatedEntityHolder` (ThreadLocal) 缓存已校验实体
-- **JWT 黑名单** — 登出即失效，Redis 兜底
-- **软删除 + 回收站** — 数据保护，支持恢复
-
----
-
-## 📊 项目规模
-
-- 后端 Java 源文件：**155 个**，约 **5,400 行**
-- 前端 Vue/JS 源文件：**15 个**，约 **5,000 行**
-- MyBatis Mapper XML：**8 个**，约 **310 行**
-- **总计约 10,800 行代码**
-
----
-
-## 📄 开源协议
-
-本项目采用 [MIT License](LICENSE) 开源。
-
----
-
-<p align="center">
-  <b>🧠 用 MindVault，构建你的第二大脑</b>
-</p>
+# 启动前端（5173）
+cd ../frontend && npm install && npm run dev
+📝 后续计划
+笔记协作编辑
+笔记版本历史
+AI 辅助写作
+移动端适配
+Docker 一键部署

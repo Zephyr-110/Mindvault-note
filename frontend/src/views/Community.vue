@@ -412,7 +412,7 @@ function openNotePicker() {
 async function loadNoteList() {
   loadingNotes.value = true
   try {
-    const res = await api.listDocuments({ page: 1, size: 500 })
+    const res = await api.listDocuments({ page: 1, size: 100 })
     if (res.code === 200 && res.data) {
       noteList.value = res.data.list || []
     }

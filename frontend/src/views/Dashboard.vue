@@ -729,7 +729,7 @@ const loadAllDocuments = async () => {
   if (!currentCategoryId.value) return
   try {
     const ids = getDescendantIds(currentCategoryId.value)
-    const promises = ids.map(id => api.listDocuments({ userId: currentUser.value.id, categoryId: id, keyword: searchKeyword.value || undefined, page: 1, size: 1000 }).then(res => res.code === 200 ? res.data.list || [] : []))
+    const promises = ids.map(id => api.listDocuments({ userId: currentUser.value.id, categoryId: id, keyword: searchKeyword.value || undefined, page: 1, size: 100 }).then(res => res.code === 200 ? res.data.list || [] : []))
     const results = await Promise.all(promises)
     const unique = results.flat().filter((doc, idx, self) => self.findIndex(d => d.id === doc.id) === idx)
     allDocuments.value = unique

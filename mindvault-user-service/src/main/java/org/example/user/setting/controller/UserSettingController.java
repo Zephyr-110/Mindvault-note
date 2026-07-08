@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/user/setting")
+@RequestMapping("/api/user/setting")
 @RequiredArgsConstructor
 @Validated
 public class UserSettingController {

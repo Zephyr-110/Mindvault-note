@@ -1,18 +1,25 @@
 package org.example.user.user.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.example.common.logincheck.UserContext;
+import org.example.common.result.PageResult;
 import org.example.community.follow.FollowService;
 import org.example.user.setting.service.UserSettingService;
+import org.example.user.user.dto.SearchUserDTO;
 import org.example.user.user.dto.UpdateUserProfileDTO;
 import org.example.user.user.entity.UserProfile;
 import org.example.user.user.mapper.UserMapper;
 import org.example.user.user.mapper.UserProfileMapper;
 import org.example.user.user.service.UserProfileService;
 import org.example.user.user.vo.UserProfileVO;
+import org.example.user.user.vo.UserSearchVO;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -79,4 +86,27 @@ public class UserProfileServiceImpl implements UserProfileService {
     public void updateUserProfile(UpdateUserProfileDTO dto) {
         userProfileMapper.updateUserProfile(UserContext.getUserId(), dto);
     }
+
+    @Override
+    public PageResult<UserSearchVO> searchUserProfile(SearchUserDTO searchUserDTO) {
+        Page<UserProfile> page = new Page<>(searchUserDTO.getPage(), searchUserDTO.getSize());
+        List<UserProfile> records = userProfileMapper.searchByNicknameOrUsername(
+            page, searchUserDTO.getKeyword(), searchUserDTO.getSize()
+        );
+        Long total = userProfileMapper.countByNicknameOrUsername(searchUserDTO.getKeyword());
+        Long userId = UserContext.getUserId();
+        List<Long> targetUserIds = records.stream().map(UserProfile::getUserId).toList();
+        Set<Long> followedUserIds = followService.batchFollowedUserIds(userId, targetUserIds);
+        List<UserSearchVO> voList = records.stream().map(userProfile -> {
+            UserSearchVO vo = new UserSearchVO();
+            vo.setUserId(userProfile.getUserId());
+            vo.setNickname(userProfile.getNickname());
+            vo.setAvatar(userProfile.getAvatar());
+            vo.setBio(userProfile.getBio());
+            vo.setIsFollow(followedUserIds.contains(userProfile.getUserId()));
+            return vo;
+        }).toList();
+        return new PageResult<>(total, searchUserDTO.getPage(), searchUserDTO.getSize(), voList);
+    }
+
 }

@@ -200,6 +200,19 @@ public class PostServiceImpl implements PostService {
         //分页查询帖子，回显全部可见帖子
         Page<Post> page = new Page<>(dto.getPage(), dto.getSize());
         Page<Post> postPage = postMapper.selectFeedPage(page, 0L);
+        List<PostVO> voList = pageToVo(postPage);
+        return new PageResult<>(postPage.getTotal(), dto.getPage(), dto.getSize(), voList);
+    }
+
+    @Override
+    public PageResult<PostVO> searchPosts(FeedDTO dto) {
+        Page<Post> page = new Page<>(dto.getPage(), dto.getSize());
+        Page<Post> result = postMapper.searchPosts(page, dto.getKeyword());
+        List<PostVO> voList = pageToVo(result);
+        return new PageResult<>(result.getTotal(), dto.getPage(), dto.getSize(), voList);
+    }
+
+    private List<PostVO> pageToVo(Page<Post> postPage){
         //批量查帖子的id
         List<Long> postIds = postPage.getRecords().stream()
                 .map(Post::getId).toList();
@@ -249,8 +262,6 @@ public class PostServiceImpl implements PostService {
             vo.setCreateTime(post.getCreateTime());
             return vo;
         }).toList();
-        Long total = postPage.getTotal();
-        return new PageResult<>(total, dto.getPage(), dto.getSize(), voList);
+        return voList ;
     }
-
 }

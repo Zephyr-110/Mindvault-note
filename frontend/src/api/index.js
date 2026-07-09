@@ -94,6 +94,8 @@ export default {
   getPostDetail: (data) => api.get('/community/post/detail', { params: data }),
   deletePost: (data) => api.delete('/community/post/delete', { params: data }),
   getFeed: (data) => api.get('/community/post/feed', { params: data }),
+  searchPosts: (data) => api.get('/community/post/search', { params: data }),
+  searchUsers: (data) => api.get('/user/profile/search', { params: data }),
 
   // 评论
   createComment: (data) => api.post('/community/comment/create', data),

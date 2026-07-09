@@ -25,4 +25,25 @@
     </set>
     WHERE user_id = #{userId}
 </update>
+
+<!--    根据昵称和用户名搜索用户-->
+<select id="searchByNicknameOrUsername" resultType="org.example.user.user.entity.UserProfile">
+    SELECT up.id, up.user_id, up.nickname, up.avatar, up.bio
+    FROM user_profile up
+    INNER JOIN user u ON up.user_id = u.id
+    WHERE up.nickname LIKE CONCAT('%', #{keyword}, '%')
+       OR u.username LIKE CONCAT('%', #{keyword}, '%')
+    ORDER BY
+        (CASE WHEN up.nickname LIKE CONCAT('%', #{keyword}, '%') THEN 2 ELSE 0 END) +
+        (CASE WHEN u.username LIKE CONCAT('%', #{keyword}, '%') THEN 1 ELSE 0 END) DESC,
+        up.nickname ASC
+</select>
+
+<select id="countByNicknameOrUsername" resultType="long">
+    SELECT COUNT(*)
+    FROM user_profile up
+    INNER JOIN user u ON up.user_id = u.id
+    WHERE up.nickname LIKE CONCAT('%', #{keyword}, '%')
+       OR u.username LIKE CONCAT('%', #{keyword}, '%')
+</select>
 </mapper>

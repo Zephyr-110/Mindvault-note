@@ -1,8 +1,81 @@
 <template>
   <div class="community-page">
     <div class="community-header">
-      <h1>👥 社区</h1>
+      <div class="header-left">
+        <el-button v-if="hasSearchResult" text class="back-btn" @click="clearSearch">
+          <el-icon><ArrowLeft /></el-icon>
+        </el-button>
+        <h1>👥 社区</h1>
+      </div>
     </div>
+
+    <!-- 搜索栏 -->
+    <div class="search-bar">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索帖子或用户..."
+        size="large"
+        clearable
+        @clear="clearSearch"
+        @keyup.enter="handleSearch"
+      >
+        <template #append>
+          <el-button
+            :type="searchKeyword.trim() ? 'primary' : ''"
+            :loading="searching"
+            :disabled="!searchKeyword.trim()"
+            @click="handleSearch"
+          >
+            搜索
+          </el-button>
+        </template>
+      </el-input>
+    </div>
+
+    <!-- 搜索结果：标签切换 -->
+    <div v-if="hasSearchResult" class="search-result">
+      <el-tabs v-model="activeSearchTab" type="border-card">
+        <el-tab-pane :label="'📄 帖子 (' + searchPostsTotal + ')'" name="posts">
+          <div v-if="searchPosts.length === 0 && !loadingPosts" class="empty-result">
+            未找到相关帖子
+          </div>
+          <div v-for="post in searchPosts" :key="post.id" class="search-post-card" @click="goToPost(post.id)">
+            <div class="search-post-title">{{ post.title }}</div>
+            <div class="search-post-meta">
+              <span>👤 {{ post.authorNickname }}</span>
+              <span>❤️ {{ post.likeCount || 0 }}</span>
+              <span>💬 {{ post.commentCount || 0 }}</span>
+            </div>
+          </div>
+          <div v-if="searchPostsHasMore" class="load-more-search" @click="loadMorePosts">加载更多帖子</div>
+        </el-tab-pane>
+        <el-tab-pane :label="'👤 用户 (' + searchUsersTotal + ')'" name="users">
+          <div v-if="searchUsers.length === 0 && !loadingUsers" class="empty-result">
+            未找到相关用户
+          </div>
+          <div v-for="user in searchUsers" :key="user.userId" class="search-user-card">
+            <div class="user-info" @click="goToUser(user.userId, user.nickname)">
+              <el-avatar :size="48" :src="user.avatar">{{ user.nickname?.charAt(0) || 'U' }}</el-avatar>
+              <div class="user-meta">
+                <div class="user-nickname">{{ user.nickname }}</div>
+                <div class="user-bio">{{ user.bio || '这个人很懒，什么都没写~' }}</div>
+              </div>
+            </div>
+            <el-button
+              :type="user.isFollow ? 'default' : 'primary'"
+              size="small"
+              @click.stop="handleUserFollow(user)"
+            >
+              {{ user.isFollow ? '已关注' : '+ 关注' }}
+            </el-button>
+          </div>
+          <div v-if="searchUsersHasMore" class="load-more-search" @click="loadMoreUsers">加载更多用户</div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 无搜索时显示原始 Feed -->
+    <div v-else>
 
     <!-- 发帖弹窗 -->
     <el-dialog v-model="showComposer" title="发布帖子" width="600px" :close-on-click-modal="true">
@@ -187,6 +260,7 @@
     <div class="fab-btn" @click="showComposer = true">
       <span class="fab-icon">+</span>
     </div>
+    </div>
   </div>
 </template>
 
@@ -194,7 +268,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Close } from '@element-plus/icons-vue'
+import { Close, Search, ArrowLeft } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
 import api from '../api'
 
@@ -208,6 +282,22 @@ const noteList = ref([])
 const selectedNotes = ref([])
 const loadingNotes = ref(false)
 
+// 搜索相关
+const searchKeyword = ref('')
+const searching = ref(false)
+const hasSearchResult = ref(false)
+const searchPosts = ref([])
+const searchUsers = ref([])
+const searchPostsTotal = ref(0)
+const searchUsersTotal = ref(0)
+const searchPostsPage = ref(1)
+const searchUsersPage = ref(1)
+const searchPostsHasMore = ref(false)
+const searchUsersHasMore = ref(false)
+const loadingPosts = ref(false)
+const loadingUsers = ref(false)
+const activeSearchTab = ref('posts')
+const pageSize = 10
 const posts = ref([])
 const loading = ref(false)
 const posting = ref(false)
@@ -215,7 +305,6 @@ const newPostTitle = ref('')
 const newPostContent = ref('')
 const currentPage = ref(1)
 const hasMore = ref(true)
-const pageSize = 10
 
 const showCommentDialog = ref(false)
 const currentPost = ref(null)
@@ -259,9 +348,88 @@ async function loadFeed(reset = true) {
   }
 }
 
-function loadMore() {
+async function loadMore() {
   currentPage.value++
   loadFeed(false)
+}
+
+// ========== 搜索 ==========
+async function handleSearch() {
+  const kw = searchKeyword.value.trim()
+  if (!kw) {
+    clearSearch()
+    return
+  }
+  searching.value = true
+  hasSearchResult.value = true
+  searchPostsPage.value = 1
+  searchUsersPage.value = 1
+  await Promise.all([loadPosts(), loadUsers()])
+  searching.value = false
+}
+
+function clearSearch() {
+  searchKeyword.value = ''
+  hasSearchResult.value = false
+  searchPosts.value = []
+  searchUsers.value = []
+  searchPostsTotal.value = 0
+  searchUsersTotal.value = 0
+}
+
+async function loadPosts() {
+  loadingPosts.value = true
+  try {
+    const res = await api.searchPosts({ keyword: searchKeyword.value.trim(), page: searchPostsPage.value, size: pageSize })
+    if (res.code === 200 && res.data) {
+      const list = res.data.list || []
+      searchPosts.value = searchPostsPage.value === 1 ? list : [...searchPosts.value, ...list]
+      searchPostsTotal.value = res.data.total || 0
+      searchPostsHasMore.value = list.length >= pageSize
+    }
+  } catch (e) {
+    /* ignore */
+  } finally {
+    loadingPosts.value = false
+  }
+}
+
+async function loadUsers() {
+  loadingUsers.value = true
+  try {
+    const res = await api.searchUsers({ keyword: searchKeyword.value.trim(), page: searchUsersPage.value, size: pageSize })
+    if (res.code === 200 && res.data) {
+      const list = res.data.list || []
+      searchUsers.value = searchUsersPage.value === 1 ? list : [...searchUsers.value, ...list]
+      searchUsersTotal.value = res.data.total || 0
+      searchUsersHasMore.value = list.length >= pageSize
+    }
+  } catch (e) {
+    /* ignore */
+  } finally {
+    loadingUsers.value = false
+  }
+}
+
+function loadMorePosts() {
+  searchPostsPage.value++
+  loadPosts()
+}
+
+function loadMoreUsers() {
+  searchUsersPage.value++
+  loadUsers()
+}
+
+async function handleUserFollow(user) {
+  try {
+    const res = await api.toggleFollow({ followeeId: user.userId })
+    if (res.code === 200 && res.data) {
+      user.isFollow = res.data.followed
+    }
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 async function handleCreatePost() {
@@ -500,11 +668,250 @@ function formatTime(time) {
   padding: 24px;
 }
 
-.community-header h1 {
+.community-header {
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-left h1 {
   font-size: 24px;
   font-weight: 700;
   color: #1a1a2e;
+  margin: 0;
+}
+
+.back-btn {
+  font-size: 18px;
+  color: #333;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.back-btn:hover {
+  background: #f0f0f0;
+  color: #1a1a2e;
+}
+
+/* 搜索栏 */
+.search-bar {
   margin-bottom: 20px;
+}
+
+/* 搜索结果 */
+.search-result {
+  margin-bottom: 20px;
+}
+
+.empty-result {
+  text-align: center;
+  color: #999;
+  padding: 32px 0;
+  font-size: 14px;
+}
+
+/* 搜索结果帖子 */
+.search-post-card {
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-post-card:hover {
+  background: #fafafa;
+}
+
+.search-post-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-post-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #999;
+}
+
+/* 搜索结果用户 */
+.search-user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.search-user-card .user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-user-card .user-meta {
+  min-width: 0;
+}
+
+.user-nickname {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.user-bio {
+  font-size: 13px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* 加载更多 */
+.load-more-search {
+  text-align: center;
+  color: #667eea;
+  cursor: pointer;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.load-more-search:hover {
+  background: rgba(102, 126, 234, 0.08);
+}
+
+/* 发帖区 */
+.search-bar {
+  margin-bottom: 20px;
+}
+
+/* 搜索结果 */
+.search-result {
+  display: flex;
+  gap: 20px;
+}
+
+.result-col {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.col-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.empty-result {
+  text-align: center;
+  color: #999;
+  padding: 32px 0;
+  font-size: 14px;
+}
+
+/* 搜索结果帖子 */
+.search-post-card {
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-post-card:hover {
+  background: #fafafa;
+}
+
+.search-post-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-post-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #999;
+}
+
+/* 搜索结果用户 */
+.search-user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.search-user-card .user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-user-card .user-meta {
+  min-width: 0;
+}
+
+.user-nickname {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.user-bio {
+  font-size: 13px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* 加载更多 */
+.load-more-search {
+  text-align: center;
+  color: #667eea;
+  cursor: pointer;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.load-more-search:hover {
+  background: rgba(102, 126, 234, 0.08);
 }
 
 /* 发帖区 */

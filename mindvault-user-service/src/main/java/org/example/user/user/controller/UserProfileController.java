@@ -1,8 +1,10 @@
 package org.example.user.user.controller;
 
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.common.result.Result;
+import org.example.user.user.dto.SearchUserDTO;
 import org.example.user.user.dto.UpdateUserProfileDTO;
 import org.example.user.user.service.UserProfileService;
 import org.springframework.web.bind.annotation.*;
@@ -27,5 +29,10 @@ public class UserProfileController {
     public Result<?> updateUserProfile(@RequestBody UpdateUserProfileDTO dto) {
         userProfileService.updateUserProfile(dto);
         return Result.success();
+    }
+
+    @GetMapping("/search")
+    public Result<?> searchUserProfile(@Valid SearchUserDTO searchUserDTO) {
+        return Result.success(userProfileService.searchUserProfile(searchUserDTO));
     }
 }

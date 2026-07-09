@@ -9,4 +9,15 @@
         ORDER BY create_time DESC
     </select>
 
+    <select id="searchPosts" resultType="org.example.community.post.entity.Post">
+        SELECT id, title, content, author_id, visibility, original_post_id, create_time
+        FROM post
+        WHERE visibility = 0
+        AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY
+            (CASE WHEN title LIKE CONCAT('%', #{keyword}, '%') THEN 2 ELSE 0 END) +
+            (CASE WHEN content LIKE CONCAT('%', #{keyword}, '%') THEN 1 ELSE 0 END) DESC,
+            create_time DESC
+    </select>
+
 </mapper>

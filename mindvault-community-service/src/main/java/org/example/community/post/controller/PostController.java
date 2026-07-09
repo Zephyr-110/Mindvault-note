@@ -42,4 +42,9 @@ public class PostController {
     public Result<PageResult<PostVO>> feed(@Valid FeedDTO dto) {
         return Result.success(postService.getFeed(dto));
     }
+
+    @GetMapping("/search")
+    public Result<PageResult<PostVO>> search(@Valid FeedDTO dto) {
+        return Result.success(postService.searchPosts(dto));
+    }
 }

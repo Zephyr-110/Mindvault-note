@@ -1,4 +1,4 @@
-package org.example.community.post.dto;
+package org.example.user.user.dto;
 
 
 import jakarta.validation.constraints.Max;
@@ -11,12 +11,10 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class FeedDTO {
-
-    @NotNull @Min(1)
+public class SearchUserDTO {
+    private String keyword;
+    @NotNull @Min(1L)
     private Long page = 1L;
-    @NotNull @Min(1) @Max(100)
+    @NotNull @Min(1L) @Max(100L)
     private Long size = 10L;
-    private String sortBy = "time";//time或hot
-    private String keyword;//搜索关键字
 }

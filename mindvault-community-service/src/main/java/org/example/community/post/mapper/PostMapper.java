@@ -10,4 +10,6 @@ import org.example.community.post.entity.Post;
 public interface PostMapper extends BaseMapper<Post> {
 
     Page<Post> selectFeedPage(Page<Post> page, @Param("visibility") Long visibility);
+    //根据标题和内容搜索帖子
+    Page<Post> searchPosts(Page<Post> page, @Param("keyword") String keyword);
 }

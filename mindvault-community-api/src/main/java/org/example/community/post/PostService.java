@@ -16,4 +16,6 @@ public interface PostService {
     void deletePost(DeletePostDTO dto);
 
     PageResult<PostVO> getFeed(FeedDTO dto);
+
+    PageResult<PostVO> searchPosts(FeedDTO dto);
 }

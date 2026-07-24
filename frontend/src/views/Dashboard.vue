@@ -344,6 +344,7 @@
         <el-button type="primary" @click="submitCategory">确定</el-button>
       </template>
     </el-dialog>
+    <AIChatPanel />
   </div>
 </template>
 
@@ -355,6 +356,7 @@ import api from '../api'
 import CategoryTree from '../components/CategoryTree.vue'
 import ForceDirectedTree3D from '../components/ForceDirectedTree3D.vue'
 import MindMapView from '../components/MindMapView.vue'
+import AIChatPanel from '../views/AIChatPanel.vue'
 import MarkdownIt from 'markdown-it'
 
 const router = useRouter()

@@ -29,8 +29,25 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### IntelliJ Run Config ###
+.run/
+
 ### VS Code ###
 .vscode/
+
+### Python ###
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
 
 ### 密钥 & 敏感配置 ###
 application-local.yaml

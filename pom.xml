@@ -25,6 +25,8 @@
         <module>mindvault-note-service</module>
         <module>mindvault-community-api</module>
         <module>mindvault-community-service</module>
+        <module>mindvault-ai-api</module>
+        <module>mindvault-ai-service</module>
         <module>mindvault-app</module>
     </modules>
 
@@ -74,6 +76,16 @@
                 <artifactId>mindvault-community-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.example</groupId>
+                <artifactId>mindvault-ai-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.example</groupId>
+                <artifactId>mindvault-ai-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- MyBatis-Plus -->
             <dependency>
@@ -119,6 +131,12 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>

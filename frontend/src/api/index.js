@@ -136,5 +136,11 @@ export default {
   blockUser: (data) => api.post('/user-block/block', data),
   unblockUser: (data) => api.delete('/user-block/unblock', { params: data }),
   listBlockedUsers: (data) => api.get('/user-block/list', { params: data }),
-  isBlocked: (data) => api.get('/user-block/is-blocked', { params: data })
+  isBlocked: (data) => api.get('/user-block/is-blocked', { params: data }),
+
+  // ========== AI 助手 ==========
+  aiCreateSession: () => api.post('/ai/create-session'),
+  aiDeleteSession: (data) => api.delete('/ai/delete-session', { data }),
+  aiListSessions: (data) => api.get('/ai/list-session', { params: data }),
+  aiListMessagesHistory: (data) => api.get('/ai/list-messages-history', { params: data })
 }

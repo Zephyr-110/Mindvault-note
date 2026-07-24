@@ -10,17 +10,13 @@
         <version>0.0.2-SNAPSHOT</version>
     </parent>
 
-    <artifactId>mindvault-app</artifactId>
+    <artifactId>mindvault-ai-service</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
             <groupId>org.example</groupId>
-            <artifactId>mindvault-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.example</groupId>
-            <artifactId>mindvault-user-service</artifactId>
+            <artifactId>mindvault-ai-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.example</groupId>
@@ -32,24 +28,25 @@
         </dependency>
         <dependency>
             <groupId>org.example</groupId>
-            <artifactId>mindvault-ai-service</artifactId>
+            <artifactId>mindvault-user-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

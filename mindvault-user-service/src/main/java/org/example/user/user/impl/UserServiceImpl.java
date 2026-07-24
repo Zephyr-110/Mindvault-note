@@ -2,7 +2,7 @@ package org.example.user.user.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.common.PasswordUtil;
+import org.example.common.util.PasswordUtil;
 import org.example.user.setting.entity.UserSetting;
 import org.example.user.setting.mapper.UserSettingMapper;
 import org.example.common.exception.BusinessException;

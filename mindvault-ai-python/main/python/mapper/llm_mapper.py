@@ -71,7 +71,7 @@ class ChatMapper:
             history = request.messages[1:]
         #如果没有系统消息，或者消息列表为空，则将系统消息添加到列表中
         else:
-            messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "system", "content": SYSTEM_PROMPT})
             # 直接将参数中的消息列表赋值给history变量
             history = request.messages
         # 遍历history变量，将每条消息添加到messages列表中

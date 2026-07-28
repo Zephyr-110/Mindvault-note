@@ -1,0 +1,20 @@
+response
+│
+├── "status_code": 200                    ← HTTP 状态码
+│
+├── "output": {
+│       └── "embeddings": [               ← 数组，每个元素对应一个输入文本
+│               {
+│                   "embedding": [        ← 向量本身，浮点数列表
+│                       0.023, -0.145, 0.678, ..., 0.003
+│                   ],                    ← 维度取决于模型（text-embedding-v1 = 1536 维）
+│                   "text_index": 0       ← 对应第几个输入文本
+│               }
+│           ]
+│   }
+│
+├── "usage": {
+│       "total_tokens": 15                ← 消耗的 token 数
+│   }
+│
+└── "message": "..."                      ← 出错时的错误信息

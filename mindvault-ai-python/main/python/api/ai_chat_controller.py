@@ -6,6 +6,7 @@ from main.python.models.chat_request import ChatRequest
 from main.python.models.chat_response import ChatResponse
 from main.python.service.chat_service import ChatService
 from main.python.models.rerank_dto import RerankDTO
+from main.python.models.to_embedding_dto import ToEmbeddingDTO
 
 
 
@@ -31,6 +32,16 @@ class AIChatController:
     def rerank(request: RerankDTO) -> StreamingResponse:
                                                                        #该参数对浏览器说明，该接口返回的是流，需要SSE支持
         return StreamingResponse(AIChatController.chat_service.rerank(request), media_type="text/event-stream")
+
+    @staticmethod
+    @app.post("/api/ai/agent_chat")
+    def agent_chat(request: ChatRequest) -> ChatResponse:
+        return AIChatController.chat_service.agent_chat(request)
+
+    @staticmethod
+    @app.post("/api/ai/to-embedding")
+    def set_embedding(dto: ToEmbeddingDTO):
+        return AIChatController.chat_service.set_embedding(dto)
 
     @staticmethod
     @app.get("/api/ai/health")

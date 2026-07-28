@@ -21,3 +21,10 @@ tqdm==4.68.4
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 uvicorn==0.51.0
+pymysql==1.1.1
+pymilvus[milvus_lite]==2.5.8
+dashscope==1.24.0
+langchain==0.3.27
+langchain-core==0.3.79
+langchain-openai==0.3.35
+langchain-community==0.3.27

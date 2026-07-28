@@ -1,0 +1,37 @@
+resp.json()  ← 整个响应体
+│
+├── "id": "chatcmpl-xxx"
+├── "object": "chat.completion"
+├── "created": 1720000000
+├── "model": "qwen-plus"
+│
+├── "choices": [                          ← 数组，通常只有一个元素
+│       └── [0]                           ← 取第一个
+│           ├── "index": 0
+│           ├── "finish_reason": "stop"
+│           │
+│           └── "message": {              ← ████████████████████████
+│                   │                        █  return 的就是这个  █
+│                   ├── "role": "assistant"  █                      █
+│                   │                        █                      █
+│                   ├── "content": "你好！"  █  ← 场景一：直接回答  █
+│                   │   （可能为 null）      █                      █
+│                   │                        █                      █
+│                   └── "tool_calls": [     █  ← 场景二：想调工具  █
+│                           {               █                      █
+│                               "id": "call_abc123",                 █
+│                               "type": "function",                  █
+│                               "function": {                        █
+│                                   "name": "search_notes",          █
+│                                   "arguments": '{"query":"xxx"}'   █
+│                               }                                    █
+│                           }                                        █
+│                       ]                                            █
+│               }                           ← ████████████████████████
+│       ]
+│
+├── "usage": {
+│       "prompt_tokens": 150,
+│       "completion_tokens": 80,
+│       "total_tokens": 230
+│   }

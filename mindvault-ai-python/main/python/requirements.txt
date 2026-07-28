@@ -1,5 +1,25 @@
+# ===== Web 框架 =====
 fastapi>=0.110.0
 uvicorn>=0.29.0
+
+# ===== LLM 调用 =====
 openai>=1.30.0
+
+# ===== 嵌入 & 重排序 =====
 sentence-transformers>=3.0.0
+
+# ===== 配置管理 =====
 pydantic-settings>=2.2.0
+
+# ===== 数据库 & 向量存储 =====
+pymysql>=1.1.0
+pymilvus[milvus_lite]>=2.4.0
+
+# ===== 阿里百炼 =====
+dashscope>=1.20.0
+
+# ===== LangChain Agent 体系 =====
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.3.0
+langchain-community>=0.3.0

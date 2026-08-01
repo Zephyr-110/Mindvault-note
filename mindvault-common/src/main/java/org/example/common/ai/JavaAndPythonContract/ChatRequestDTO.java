@@ -1,4 +1,4 @@
-package org.example.mindvaultaiapi.dto;
+package org.example.common.ai.JavaAndPythonContract;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,5 +12,6 @@ import java.util.List;
 public class ChatRequestDTO {
     private List<ChatMessageDTO> messages;//整个对话历史
     private boolean stream = true;//是否流式返回
+    private String sessionId;//会话id
     private String userId;//用户id
 }

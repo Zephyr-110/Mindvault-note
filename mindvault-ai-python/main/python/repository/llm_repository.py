@@ -26,6 +26,7 @@ class LLMRepository:
                     yield chunk.choices[0].delta.content
             yield None
         except Exception as e:
+            print(f"[LLMRepository] stream_chat 异常: {e}")
             yield f"ERROR: {str(e)}"
 
     def chat(self, messages: List[dict]) -> Optional[str]:
@@ -38,6 +39,7 @@ class LLMRepository:
             )
             return response.choices[0].message.content
         except Exception as e:
+            print(f"[LLMRepository] chat 异常: {e}")
             return f"ERROR: {str(e)}"
 
 

@@ -1,11 +1,14 @@
 import json
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 from fastapi.responses import StreamingResponse
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
+import uvicorn
 
 from main.python.models.chat_request import ChatRequest
 from main.python.models.chat_response import ChatResponse
-from main.python.service.chat_service import ChatService
+from main.python.mapper.service_test import ChatService
 from models.agent_response import AgentChatResponse
 
 
@@ -38,3 +41,10 @@ def stream_agent_chat(request: ChatRequest) -> StreamingResponse:
 @ai_router.get("/api/ai/health")
 def health():
     return {"status": "ok"}
+
+
+app = FastAPI(title="MindVault AI API")
+app.include_router(ai_router)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

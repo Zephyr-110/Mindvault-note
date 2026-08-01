@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import 'highlight.js/styles/github.css'
 import App from './App.vue'
 import Login from './views/Login.vue'
 import Dashboard from './views/Dashboard.vue'
@@ -11,6 +12,7 @@ import Profile from './views/Profile.vue'
 import PostDetail from './views/PostDetail.vue'
 import UserProfile from './views/UserProfile.vue'
 import Chat from './views/Chat.vue'
+import AIChat from './views/AIChat.vue'
 import Settings from './views/Settings.vue'
 import BlockList from './views/BlockList.vue'
 
@@ -26,6 +28,7 @@ const router = createRouter({
     { path: '/notifications', component: Notifications },
     { path: '/profile', component: Profile },
     { path: '/chat', component: Chat },
+    { path: '/ai-chat', component: AIChat },
     { path: '/settings', component: Settings },
     { path: '/block-list', component: BlockList }
   ]

@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000
+  timeout: 60000
 })
 
 // 响应拦截器 - 直接返回后端返回的 data，401 时跳转登录
@@ -141,6 +141,23 @@ export default {
   // ========== AI 助手 ==========
   aiCreateSession: () => api.post('/ai/create-session'),
   aiDeleteSession: (data) => api.delete('/ai/delete-session', { data }),
+  aiUpdateSessionTitle: (data) => api.put('/ai/update-session-title', data),
   aiListSessions: (data) => api.get('/ai/list-session', { params: data }),
-  aiListMessagesHistory: (data) => api.get('/ai/list-messages-history', { params: data })
+  aiListMessagesHistory: (data) => api.get('/ai/list-messages-history', { params: data }),
+  aiAgentChat: (data) => api.post('/ai/chat/agent-chat', data),
+  aiAgentChatStream: (data) => {
+    const userInfo = localStorage.getItem('userInfo')
+    let token = ''
+    if (userInfo) {
+      try { token = JSON.parse(userInfo).token || '' } catch (e) {}
+    }
+    return fetch('/api/ai/chat/stream-agent-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify(data)
+    })
+  }
 }

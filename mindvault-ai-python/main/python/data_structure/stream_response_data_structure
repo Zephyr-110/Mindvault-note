@@ -1,0 +1,92 @@
+response.iter_content()  ← 逐块产出 bytes
+│
+├── chunk 1: bytes
+│   └── json.loads(chunk)  → {
+│       "id": "chatcmpl-xxx",
+│       "object": "chat.completion.chunk",    ← 注意：多了 .chunk
+│       "created": 1720000000,
+│       "model": "qwen-plus",
+│       │
+│       "choices": [
+│           └── [0]
+│               ├── "index": 0,
+│               ├── "delta": {               ← 非流式是 message，流式是 delta
+│               │       "role": "assistant",
+│               │       "content": "你好",    ← 增量内容，不是完整回答
+│               │       "tool_calls": null
+│               │   },
+│               └── "finish_reason": null     ← 没结束前是 null
+│       ]
+│   }
+│
+├── chunk 2: bytes
+│   └── json.loads(chunk)  → {
+│       "choices": [{
+│           "delta": {
+│               "content": "，有什么"         ← 继续拼接
+│           },
+│           "finish_reason": null
+│       }]
+│   }
+│
+├── chunk 3: bytes
+│   └── json.loads(chunk)  → {
+│       "choices": [{
+│           "delta": {
+│               "content": "可以帮你的？"
+│           },
+│           "finish_reason": "stop"           ← 最后一帧，标记结束
+│       }]
+│   }
+│
+│   ─── 以上是"纯文本回答"场景 ───
+│
+│   ─── 以下是"工具调用"场景（流式） ───
+│
+├── chunk N: bytes
+│   └── json.loads(chunk)  → {
+│       "choices": [{
+│           "delta": {
+│               "content": null,
+│               "tool_calls": [               ← 工具调用也是流式返回
+│                   {
+│                       "index": 0,
+│                       "id": "call_abc123",   ← 第一帧给 id
+│                       "type": "function",
+│                       "function": {
+│                           "name": null,       ← 还没给完
+│                           "arguments": ""
+│                       }
+│                   }
+│               ]
+│           }
+│       }]
+│   }
+│
+├── chunk N+1: bytes
+│   └── json.loads(chunk)  → {
+│       "choices": [{
+│           "delta": {
+│               "tool_calls": [{
+│                   "function": {
+│                       "name": "search_notes",  ← 接着给函数名
+│                       "arguments": "{\"query\""
+│                   }
+│               }]
+│           }
+│       }]
+│   }
+│
+├── chunk N+2: bytes
+│   └── json.loads(chunk)  → {
+│       "choices": [{
+│           "delta": {
+│               "tool_calls": [{
+│                   "function": {
+│                       "arguments": ":\"我叫什么\"}"  ← arguments 也是分片给
+│                   }
+│               }]
+│           },
+│           "finish_reason": "tool_calls"
+│       }]
+│   }

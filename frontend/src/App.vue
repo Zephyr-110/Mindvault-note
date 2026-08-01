@@ -32,6 +32,10 @@
             <span class="nav-icon">📝</span>
             <span v-show="!sidebarCollapsed" class="nav-label">去记笔记</span>
           </router-link>
+          <router-link to="/ai-chat" class="nav-item" active-class="nav-item--active">
+            <span class="nav-icon">🤖</span>
+            <span v-show="!sidebarCollapsed" class="nav-label">小M助手</span>
+          </router-link>
           <router-link to="/profile" class="nav-item" active-class="nav-item--active">
             <span class="nav-icon">👤</span>
             <span v-show="!sidebarCollapsed" class="nav-label">我的</span>

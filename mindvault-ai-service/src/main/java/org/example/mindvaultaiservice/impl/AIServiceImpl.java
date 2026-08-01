@@ -6,21 +6,19 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.common.ai.JavaAndPythonContract.*;
+import org.example.common.ai.client.PythonVectorClient;
 import org.example.common.exception.BusinessException;
 import org.example.common.logincheck.UserContext;
-import org.example.community.post.entity.Post;
-import org.example.community.post.mapper.PostMapper;
 import org.example.mindvaultaiapi.dto.*;
 import org.example.mindvaultaiapi.service.AIService;
 import org.example.mindvaultaiapi.vo.HistoryVO;
 import org.example.mindvaultaiapi.vo.SessionVO;
-import org.example.mindvaultaiservice.client.PythonAIClient;
+import org.example.common.ai.client.PythonAIChatClient;
 import org.example.mindvaultaiservice.entity.AIChatHistory;
 import org.example.mindvaultaiservice.entity.AIChatSession;
 import org.example.mindvaultaiservice.mapper.AIChatHistoryMapper;
 import org.example.mindvaultaiservice.mapper.AIChatSessionMapper;
-import org.example.note.document.entity.Document;
-import org.example.note.document.mapper.DocumentMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -28,6 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -36,72 +35,118 @@ public class AIServiceImpl implements AIService {
 
     private final AIChatSessionMapper aiChatSessionMapper;
     private final AIChatHistoryMapper aiChatHistoryMapper;
-    private final PostMapper postMapper;
-    private final DocumentMapper documentMapper;
-    private final PythonAIClient pythonAIClient;
+    private final PythonAIChatClient pythonAIChatClient;
+    private final PythonVectorClient pythonVectorClient;
 
-    private final String INTENTION_CHECK_PROMPT = """
-        你是一个意图检测器。判断用户输入是否需要搜索笔记或社区帖子。
-        
-        规则：
-        - 用户询问个人笔记、知识库、历史记录相关 → 需要搜索
-        - 用户询问社区讨论、他人分享的帖子 → 需要搜索
-        - 普通闲聊、问候、常识问题 → 不需要搜索
-        
-        你必须只返回一行 JSON，不要任何其他文字：
-        - 需要搜索：{"search":true,"query":"提取的关键词"}
-        - 不需要搜索：{"search":false}
-        """;
+    String TITLE_SYSTEM_PROMPT = "你是一个专业的会话标题生成器，你的任务是根据用户输入的关键词生成一个会话标题。";
 
-    private final String GENERATE_SUMMARY_PROMPT = """
-        你是一个知识库总结生成器。
-        
-        你的任务是生成一个总结，用于总结前文的摘要，要达到使人一眼就能知道前文都说了什么，使得对话有逻辑的进行下去。
-        
-        总结应该包含以下内容：
-        - 笔记或社区帖子的内容
-        - 笔记或社区帖子的结构
-        - 笔记或社区帖子的关系
-        - 笔记或社区帖子的适用场景
-        """;
 
     @Override
     public SseEmitter chat(ChatRequestJavaAPIDTO request) {
-        // 意图检测
-        ChatMessageDTO checkSystem = new ChatMessageDTO("system", INTENTION_CHECK_PROMPT);
-        ChatMessageDTO checkUser = new ChatMessageDTO("user", request.getQuery());
-        ChatRequestDTO intentionCheckRequest = new ChatRequestDTO(List.of(checkSystem, checkUser), false, UserContext.getUserId().toString());
-        ChatResponseDTO intentionCheckResponse = pythonAIClient.chat(intentionCheckRequest);
-        if (intentionCheckResponse.getError() != null) {
-            throw new BusinessException(500, intentionCheckResponse.getError());
-        }
-        String content = intentionCheckResponse.getContent();
-        if(content == null) {
-            log.error("用户 {} 在意图检测时返回了空结果", UserContext.getUserId());
-            throw new BusinessException(500, "意图检测失败");
-        }
-        // 如果只是普通闲聊，则直接使用普通对话
-        if (content.contains("\"search\":false")) {
-            // 调用方法先把用户的输入落库
-            saveMessage(request.getSessionId(), "user", request.getQuery());
-            // 返回LLM的输出，并将其输出落库
-            return pythonAIClient.chatStream(
-                    toChatRequest(request),
-                    fullContent -> {
-                        saveMessage(request.getSessionId(), "assistant", fullContent);
-                    }
-            );
-        }
-        // 若需要搜索，则调用Rerank接口进行搜索排序
-        saveMessage(request.getSessionId(), "user", request.getQuery());
-        // 返回LLM的输出，并将其输出落库
-        return pythonAIClient.rerank(
-                toRerankRequest( request),
+        return pythonAIChatClient.chatStream(
+                toChatRequest(request, ""),
                 fullContent -> {
                     saveMessage(request.getSessionId(), "assistant", fullContent);
                 }
         );
     }
+
+    @Override
+    public ChatResponseDTO agentChat(ChatRequestJavaAPIDTO request) {
+        createSession( request);
+        // 用户消息落库
+        saveMessage(request.getSessionId(), "user", request.getQuery());
+        //拿到请求
+        ChatRequestDTO chatRequestDTO = toChatRequest(request, "");
+        // LLM生成响应
+        ChatResponseDTO response = pythonAIChatClient.agentChat(chatRequestDTO);
+        if(response == null || response.getContent() == null){
+            throw new BusinessException(500, "LLM生成响应失败");
+        }
+        // 响应落库
+        saveMessage(request.getSessionId(), "assistant", response.getContent());
+        // 用户消息落向量数据库
+        ToEmbeddingMemoriesDTO dto = new ToEmbeddingMemoriesDTO();
+        dto.setId(UUID.randomUUID().toString());
+        dto.setUserId(UserContext.getUserId().toString());
+        dto.setSessionId(request.getSessionId());
+        dto.setType("chat");
+        dto.setText("user: " + request.getQuery()+ "\nassistant: " + response.getContent());
+        dto.setTimestamp(System.currentTimeMillis() / 1000);
+        try {
+            setEmbeddingMemories(dto);
+        } catch (Exception e) {
+            log.error("落向量数据库失败", e);
+        }
+        return response;
+    }
+
+    private void createSession(ChatRequestJavaAPIDTO request) {
+        if (request.getSessionId() == null) {
+            //先创建会话（临时标题）
+            AIChatSession session = new AIChatSession(null, UserContext.getUserId(),
+                    "思考中...", "", LocalDateTime.now(), LocalDateTime.now());
+            aiChatSessionMapper.insert(session);
+            request.setSessionId(session.getId().toString());  // ← 设回去
+            //再生成标题（此时 toChatRequest 能正常工作了）
+            try {
+                String title = pythonAIChatClient.chat(
+                        toChatRequest(request, TITLE_SYSTEM_PROMPT)
+                ).getContent();
+                //更新标题
+                aiChatSessionMapper.update(null, new LambdaUpdateWrapper<AIChatSession>()
+                        .set(AIChatSession::getTitle, title)
+                        .eq(AIChatSession::getId, session.getId()));
+            } catch (Exception e) {
+                log.error("生成标题失败，使用默认标题", e);
+            }
+            log.info("用户 {} 自动创建了一个新的会话", UserContext.getUserId());
+        }
+    }
+
+    @Override
+    public SseEmitter agentChatStream(ChatRequestJavaAPIDTO request) {
+        // 冻结是否新会话
+        final boolean isNewSession = request.getSessionId() == null;
+        createSession(request);
+        // 用户消息落库
+        saveMessage(request.getSessionId(), "user", request.getQuery());
+        // 提前捕获 userId，避免回调线程中 ThreadLocal 丢失
+        Long userId = UserContext.getUserId();
+        // 如果是新会话，构建 session_created 事件，等会传给客户端，否则那就传空，而客户端判空之后就不吐了
+        String initialEvent = null;
+        if (isNewSession) {
+            String title = aiChatSessionMapper.selectById(Long.parseLong(request.getSessionId())).getTitle();
+            initialEvent = String.format("{\"type\":\"session_created\",\"sessionId\":\"%s\",\"title\":\"%s\"}",
+                    request.getSessionId(), title);
+        }
+        return pythonAIChatClient.agentChatStream(
+                toChatRequest(request,  ""),
+                fullContent -> {
+                    saveMessage(request.getSessionId(), "assistant", fullContent, userId);
+                    // 用户消息落向量数据库
+                    ToEmbeddingMemoriesDTO dto = new ToEmbeddingMemoriesDTO();
+                    dto.setId(UUID.randomUUID().toString());
+                    dto.setUserId(userId.toString());
+                    dto.setSessionId(request.getSessionId());
+                    dto.setType("chat");
+                    dto.setText("user: " + request.getQuery()+ "\nassistant: " + fullContent);
+                    dto.setTimestamp(System.currentTimeMillis() / 1000);
+                    try {
+                        setEmbeddingMemories(dto);
+                    } catch (Exception e) {
+                        log.error("落向量数据库失败", e);
+                    }
+                },
+                initialEvent
+        );
+    }
+
+    private void setEmbeddingMemories(ToEmbeddingMemoriesDTO dto) {
+        pythonVectorClient.toEmbeddingMemories(dto);
+    }
+
+
 
     /**
      * 消息落库
@@ -110,16 +155,20 @@ public class AIServiceImpl implements AIService {
      * @param content 内容
      */
     private void saveMessage(String sessionId, String role, String content) {
+        saveMessage(sessionId, role, content, UserContext.getUserId());
+    }
+
+    private void saveMessage(String sessionId, String role, String content, Long userId) {
         AIChatHistory history = new AIChatHistory();
         history.setSessionId(Long.parseLong(sessionId));
-        history.setUserId(UserContext.getUserId());
+        history.setUserId(userId);
         history.setRole(role);
         history.setContent(content);
         history.setCreateTime(LocalDateTime.now());
         aiChatHistoryMapper.insert(history);
     }
 
-    private ChatRequestDTO toChatRequest(ChatRequestJavaAPIDTO request) {
+    private ChatRequestDTO toChatRequest(ChatRequestJavaAPIDTO request, String systemPrompt) {
         // 查询会话是否存在
         AIChatSession session = aiChatSessionMapper.selectById(Long.parseLong(request.getSessionId()));
         // 提前创建消息列表
@@ -128,7 +177,7 @@ public class AIServiceImpl implements AIService {
         ChatMessageDTO system;
         // 如果会话存在，则使用会话的摘要作为系统消息
         if (session != null) {
-            system = new ChatMessageDTO("system", session.getSummary());
+            system = new ChatMessageDTO("system", systemPrompt);
             // 更新会话时间
             updateUpdatedTime(request.getSessionId());
         } else {
@@ -140,36 +189,9 @@ public class AIServiceImpl implements AIService {
         messages.add(system);
         messages.add(user);
         // 将拼接好了的列表返回
-        return new ChatRequestDTO(messages, true, UserContext.getUserId().toString());
+        return new ChatRequestDTO(messages, true, request.getSessionId(), UserContext.getUserId().toString());
     }
 
-    private RerankDTO toRerankRequest(ChatRequestJavaAPIDTO request) {
-        // 查询会话是否存在
-        AIChatSession session = aiChatSessionMapper.selectById(Long.parseLong(request.getSessionId()));
-        // 会话不存在则抛出异常
-        if (session == null) {
-            log.error("用户 {} 在不存在的会话 {}交流", UserContext.getUserId(), request.getSessionId());
-            throw new BusinessException(500, "会话不存在");
-        }
-        // 更新会话时间
-        updateUpdatedTime(request.getSessionId());
-        // 查询所有帖子
-        List<Post> allPosts = postMapper.selectList(null);
-        // 查询所有笔记
-        List<Document> allDocuments = documentMapper.selectList(null);
-        // 提前创建待排序列表
-        List<RerankSourceItem> sources = new ArrayList<>();
-        // 帖子入表
-        for (Post post : allPosts) {
-            sources.add(new RerankSourceItem("post", post.getId().toString(), post.getTitle(), post.getContent()));
-        }
-        // 笔记入表
-        for (Document document : allDocuments) {
-            sources.add(new RerankSourceItem("document", document.getId().toString(), document.getTitle(), document.getContent()));
-        }
-        // 返回RerankDTO
-        return new RerankDTO(request.getQuery(), sources, 5, UserContext.getUserId().toString());
-     }
     /**
      * 更新会话时间
      * @param sessionId 会话ID
@@ -184,7 +206,7 @@ public class AIServiceImpl implements AIService {
 
     @Override
     public boolean health() {
-        return pythonAIClient.health();
+        return pythonAIChatClient.health();
     }
 
     @Override
@@ -231,8 +253,23 @@ public class AIServiceImpl implements AIService {
         aiChatHistoryMapper.delete(new LambdaQueryWrapper<AIChatHistory>()
                 .eq(AIChatHistory::getSessionId, dto.getSessionId()));
         aiChatSessionMapper.deleteById(dto.getSessionId());
+        try {
+            pythonVectorClient.deleteMemoriesEmbedding(new DeleteMemoriesEmbeddingDTO(dto.getSessionId().toString(), UserContext.getUserId().toString()));
+        } catch (Exception e) {
+            log.error("删除会话 {} 的向量失败: {}", dto.getSessionId(), e.getMessage());
+        }
         return toSessionVO(dto.getPage(), dto.getSize());
     }
 
-
+    @Override
+    public List<SessionVO> updateSessionTitle(UpdateSessionTitleDTO dto) {
+        log.info("用户 {} 更新了会话 {} 的标题为 {}", UserContext.getUserId(), dto.getSessionId(), dto.getNewTitle());
+        aiChatSessionMapper.update(null,
+                new LambdaUpdateWrapper<AIChatSession>()
+                        .set(AIChatSession::getTitle, dto.getNewTitle())
+                        .eq(AIChatSession::getId, dto.getSessionId())
+                        .eq(AIChatSession::getUserId, UserContext.getUserId())
+        );
+        return toSessionVO(dto.getPage(), dto.getSize());
+    }
 }

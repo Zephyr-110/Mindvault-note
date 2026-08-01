@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.common.ValidatedEntityHolder;
+import org.example.common.ai.JavaAndPythonContract.DeleteDocumentsEmbeddingDTO;
+import org.example.common.ai.JavaAndPythonContract.ToEmbeddingDocumentsDTO;
+import org.example.common.ai.client.PythonVectorClient;
 import org.example.common.annotation.CheckOwner;
 import org.example.common.annotation.CheckPost;
 import org.example.common.annotation.CheckResource;
@@ -37,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +59,8 @@ public class PostServiceImpl implements PostService {
     private final CommentMapper commentMapper;
     private final FavoriteService favoriteService;
     private final FavoriteMapper favoriteMapper;
-    private final FollowMapper followMapper;
     private final FollowService followService;
+    private final PythonVectorClient pythonVectorClient;
 
 
 
@@ -108,6 +112,20 @@ public class PostServiceImpl implements PostService {
         vo.setCreateTime(post.getCreateTime());
         //文档的笔记附件
         vo.setDocumentAccessories(createPostDTO.getDocumentAccessories());
+        // 创建帖子向量
+        try {
+            pythonVectorClient.toEmbeddingDocuments(
+                    new ToEmbeddingDocumentsDTO(
+                            post.getId().toString(),
+                            UserContext.getUserId().toString(),
+                            "post",
+                            post.getTitle(),
+                            post.getContent(),
+                            (int) post.getCreateTime().atZone(ZoneOffset.UTC).toEpochSecond()
+                    ));
+        } catch (Exception e) {
+            log.error("创建帖子向量失败", e);
+        }
         return vo;
     }
 
@@ -192,6 +210,16 @@ public class PostServiceImpl implements PostService {
                 .eq(Favorite::getPostId, dto.getPostId()));
         //删帖子
         postMapper.deleteById(dto.getPostId());
+        // 删除帖子向量
+        try {
+            pythonVectorClient.deleteDocumentsEmbedding(
+                    new DeleteDocumentsEmbeddingDTO(
+                            dto.getPostId().toString(),
+                            "post"
+                    ));
+        } catch (Exception e) {
+            log.error("删除帖子向量失败", e);
+        }
     }
 
     @Override

@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.common.result.Result;
 import org.example.mindvaultaiapi.dto.*;
+import org.example.common.ai.JavaAndPythonContract.ChatResponseDTO;
 import org.example.mindvaultaiapi.service.AIService;
 import org.example.mindvaultaiapi.vo.HistoryVO;
 import org.example.mindvaultaiapi.vo.SessionVO;
@@ -26,6 +27,17 @@ public class AIController {
         return aiService.chat(request);
     }
 
+    @PostMapping("/chat/agent-chat")
+    public Result<ChatResponseDTO> agentChat(@Valid @RequestBody ChatRequestJavaAPIDTO request) {
+        return Result.success(aiService.agentChat(request));
+    }
+
+    @PostMapping("/chat/stream-agent-chat")
+    public SseEmitter chatStreamAgentChat(@Valid @RequestBody ChatRequestJavaAPIDTO request) {
+        return aiService.agentChatStream(request);
+    }
+
+
     @GetMapping("/health")
     public Result<Boolean> health() {
         return Result.success(aiService.health());
@@ -40,6 +52,11 @@ public class AIController {
     @DeleteMapping("/delete-session")
     public Result<List<SessionVO>> deleteSession(@Valid @RequestBody DeleteSessionDTO dto) {
         return Result.success(aiService.deleteSession(dto));
+    }
+
+    @PutMapping("/update-session-title")
+    public Result<List<SessionVO>> updateSessionTitle(@Valid @RequestBody UpdateSessionTitleDTO dto) {
+        return Result.success(aiService.updateSessionTitle(dto));
     }
 
     @GetMapping("/list-session")

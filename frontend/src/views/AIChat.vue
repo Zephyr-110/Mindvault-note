@@ -1,120 +1,115 @@
 <template>
-  <div class="ai-chat-panel" :class="{ collapsed: !visible }">
-    <div class="panel-toggle" @click="visible = !visible">
-      <span class="toggle-icon">{{ visible ? '▶' : '◀' }}</span>
-      <span v-if="!visible" class="toggle-label">AI</span>
+  <div class="ai-chat-page">
+    <!-- 左侧会话列表 -->
+    <div class="session-sidebar" :class="{ hidden: sessionListHidden }">
+      <div class="session-sidebar-header">
+        <span class="session-list-title">会话列表</span>
+        <el-button class="new-session-btn" size="small" @click="createNewSession">
+          <span class="plus-icon">+</span> 新建
+        </el-button>
+      </div>
+      <div class="session-list">
+        <div
+          v-for="s in sessions"
+          :key="s.id"
+          :class="['session-item', { active: currentSessionId === s.id }]"
+          @click="selectSession(s.id)"
+          @dblclick.stop="startEditTitle(s)"
+        >
+          <input
+            v-if="editingSessionId === s.id"
+            v-model="editingTitle"
+            class="session-title-input"
+            @blur="saveTitle(s)"
+            @keydown.enter="saveTitle(s)"
+            @keydown.escape="cancelEdit"
+            @click.stop
+          />
+          <span v-else class="session-title">{{ s.title || '无标题会话' }}</span>
+          <el-button class="session-delete-btn" link size="small" @click.stop="handleDeleteSession(s.id)">✕</el-button>
+        </div>
+        <div v-if="sessions.length === 0" class="empty-sessions">暂无会话</div>
+      </div>
     </div>
 
-    <div v-show="visible" class="panel-body">
-      <!-- 左侧会话列表 -->
-      <div class="session-sidebar" :class="{ hidden: sessionListHidden }">
-        <div class="session-sidebar-header">
-          <span class="session-list-title">会话</span>
-          <el-button type="primary" size="small" link @click="createNewSession">+ 新建</el-button>
+    <!-- 收缩按钮 -->
+    <div class="session-toggle" @click="sessionListHidden = !sessionListHidden">
+      {{ sessionListHidden ? '▶' : '◀' }}
+    </div>
+
+    <!-- 聊天区 -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <span class="chat-title">🤖 小M助手</span>
+        <el-button v-if="currentSessionId" type="danger" plain size="small" @click="clearCurrentChat">清空对话</el-button>
+      </div>
+
+      <div class="chat-messages" ref="msgBox">
+        <div v-if="!currentSessionId" class="empty-chat">
+          <p>👋 你好！我是你的笔记助手</p>
+          <p class="hint">新建一个会话，开始和 AI 聊天吧</p>
         </div>
-        <div class="session-list">
-          <div
-            v-for="s in sessions"
-            :key="s.id"
-            :class="['session-item', { active: currentSessionId === s.id }]"
-            @click="selectSession(s.id)"
-            @dblclick.stop="startEditTitle(s)"
-          >
-            <input
-              v-if="editingSessionId === s.id"
-              v-model="editingTitle"
-              class="session-title-input"
-              @blur="saveTitle(s)"
-              @keydown.enter="saveTitle(s)"
-              @keydown.escape="cancelEdit"
-              @click.stop
-            />
-            <span v-else class="session-title">{{ s.title || '无标题会话' }}</span>
-            <el-button class="session-delete-btn" link size="small" @click.stop="handleDeleteSession(s.id)">✕</el-button>
+        <div v-else-if="historyMessages.length === 0 && !loading" class="empty-chat">
+          <p>开始新的对话吧</p>
+        </div>
+
+        <div v-for="(msg, idx) in historyMessages" :key="idx" :class="['msg-row', msg.role]">
+          <div class="msg-avatar">{{ msg.role === 'user' ? '👤' : '🤖' }}</div>
+          <div class="msg-bubble markdown-body" v-html="renderMarkdown(msg.content)"></div>
+        </div>
+
+        <div v-if="reasoningContent" class="reasoning-card">
+          <div class="reasoning-header" @click="reasoningExpanded = !reasoningExpanded">
+            <span class="reasoning-title">💭 思考过程</span>
+            <span class="reasoning-toggle">{{ reasoningExpanded ? '收起 ▲' : '展开 ▼' }}</span>
           </div>
-          <div v-if="sessions.length === 0" class="empty-sessions">暂无会话</div>
+          <div v-show="reasoningExpanded" class="reasoning-body">{{ reasoningContent }}</div>
+        </div>
+
+        <div v-if="thinkingCards.length > 0" class="thinking-section">
+          <div v-for="card in thinkingCards" :key="card.id" class="thinking-card">
+            <span class="thinking-icon">{{ card.icon }}</span>
+            <span class="thinking-text">{{ card.text }}</span>
+          </div>
+        </div>
+
+        <div v-if="streamingContent" class="msg-row assistant">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble markdown-body" v-html="renderMarkdown(streamingContent)"></div>
+          <span class="cursor">|</span>
+        </div>
+
+        <div v-if="loading && !streamingContent && thinkingCards.length === 0" class="msg-row assistant">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble typing">思考中<span class="dots">...</span></div>
         </div>
       </div>
 
-      <!-- 收缩按钮 -->
-      <div class="session-toggle" @click="sessionListHidden = !sessionListHidden">
-        {{ sessionListHidden ? '☰' : '✕' }}
-      </div>
-
-      <!-- 聊天区 -->
-      <div class="chat-area">
-        <div class="panel-header">
-          <span class="panel-title">🤖 MindVault AI</span>
-          <el-button v-if="currentSessionId" link size="small" @click="clearCurrentChat">清空</el-button>
-        </div>
-
-        <div class="panel-messages" ref="msgBox">
-          <div v-if="!currentSessionId" class="empty-chat">
-            <p>👋 你好！我是你的笔记助手</p>
-            <p class="hint">新建一个会话，开始和 AI 聊天吧</p>
-          </div>
-          <div v-else-if="historyMessages.length === 0 && !loading" class="empty-chat">
-            <p>开始新的对话吧</p>
-          </div>
-
-          <div v-for="(msg, idx) in historyMessages" :key="idx" :class="['msg-row', msg.role]">
-            <div class="msg-avatar">{{ msg.role === 'user' ? '👤' : '🤖' }}</div>
-            <div class="msg-bubble markdown-body" v-html="renderMarkdown(msg.content)"></div>
-          </div>
-
-          <div v-if="reasoningContent" class="reasoning-card">
-            <div class="reasoning-header" @click="reasoningExpanded = !reasoningExpanded">
-              <span class="reasoning-title">💭 思考过程</span>
-              <span class="reasoning-toggle">{{ reasoningExpanded ? '收起 ▲' : '展开 ▼' }}</span>
-            </div>
-            <div v-show="reasoningExpanded" class="reasoning-body">{{ reasoningContent }}</div>
-          </div>
-
-          <div v-if="thinkingCards.length > 0" class="thinking-section">
-            <div v-for="card in thinkingCards" :key="card.id" class="thinking-card">
-              <span class="thinking-icon">{{ card.icon }}</span>
-              <span class="thinking-text">{{ card.text }}</span>
-            </div>
-          </div>
-
-          <div v-if="streamingContent" class="msg-row assistant">
-            <div class="msg-avatar">🤖</div>
-            <div class="msg-bubble markdown-body" v-html="renderMarkdown(streamingContent)"></div>
-            <span v-if="streamingContent" class="cursor">|</span>
-          </div>
-
-          <div v-if="loading && !streamingContent && thinkingCards.length === 0" class="msg-row assistant">
-            <div class="msg-avatar">🤖</div>
-            <div class="msg-bubble typing">思考中<span class="dots">...</span></div>
-          </div>
-        </div>
-
-        <div class="panel-input">
-          <el-input
-            v-model="inputText"
-            placeholder="问AI关于你的笔记..."
-            @keyup.enter="sendMessage"
-            :disabled="loading"
-            size="small"
-          >
-            <template #append>
-              <el-button
-                @click="sendMessage"
-                :disabled="loading || !inputText.trim()"
-                size="small"
-              >
-                发送
-              </el-button>
-            </template>
-          </el-input>
-        </div>
+      <div class="chat-input">
+        <el-input
+          v-model="inputText"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 5 }"
+          placeholder="输入你的问题... (Enter 换行，Ctrl+Enter 发送)"
+          :disabled="loading"
+          class="input-field"
+          @keydown="handleInputKeydown"
+        />
+        <el-button
+          class="send-btn"
+          type="primary"
+          :disabled="loading || !inputText.trim()"
+          @click="sendMessage"
+        >
+          <span class="send-icon">↑</span>
+        </el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api/index'
 import MarkdownIt from 'markdown-it'
@@ -140,7 +135,6 @@ function renderMarkdown(text) {
   return md.render(text)
 }
 
-const visible = ref(true)
 const sessionListHidden = ref(false)
 const sessions = ref([])
 const currentSessionId = ref(null)
@@ -161,18 +155,6 @@ function scrollToBottom() {
       msgBox.value.scrollTop = msgBox.value.scrollHeight
     }
   })
-}
-
-function getToken() {
-  const userInfo = localStorage.getItem('userInfo')
-  if (userInfo) {
-    try {
-      return JSON.parse(userInfo).token || ''
-    } catch (e) {
-      return ''
-    }
-  }
-  return ''
 }
 
 async function loadSessions() {
@@ -230,6 +212,13 @@ async function selectSession(sessionId) {
     scrollToBottom()
   } catch (e) {
     // ignore
+  }
+}
+
+function handleInputKeydown(e) {
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault()
+    sendMessage()
   }
 }
 
@@ -375,65 +364,19 @@ function cancelEdit() {
 }
 
 onMounted(() => {
-  if (val) {
-    loadSessions()
-    scrollToBottom()
-  }
-})
-
-onMounted(() => {
   loadSessions()
 })
 </script>
 
 <style scoped>
-.ai-chat-panel {
-  position: fixed;
-  right: 0;
-  top: 60px;
-  bottom: 0;
-  z-index: 100;
+.ai-chat-page {
   display: flex;
-  transition: transform 0.3s ease;
-}
-
-.ai-chat-panel.collapsed {
-  transform: translateX(calc(100% - 40px));
-}
-
-.panel-toggle {
-  width: 40px;
-  min-width: 40px;
-  background: #409eff;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 8px 0 0 8px;
-  user-select: none;
-  font-size: 14px;
-  gap: 4px;
-}
-
-.toggle-label {
-  writing-mode: vertical-rl;
-  font-size: 12px;
-  letter-spacing: 2px;
-}
-
-.panel-body {
-  display: flex;
+  height: 100vh;
   background: #fff;
-  border-left: 1px solid #e4e7ed;
-  box-shadow: -2px 0 12px rgba(0, 0, 0, .08);
-  width: 600px;
 }
 
-/* 会话列表 */
 .session-sidebar {
-  width: 180px;
+  width: 220px;
   border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
@@ -448,7 +391,7 @@ onMounted(() => {
 }
 
 .session-sidebar-header {
-  padding: 10px;
+  padding: 14px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -457,8 +400,30 @@ onMounted(() => {
 }
 
 .session-list-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #303133;
+}
+
+.new-session-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.new-session-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(118, 75, 162, 0.35);
+}
+
+.plus-icon {
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .session-list {
@@ -468,24 +433,32 @@ onMounted(() => {
 }
 
 .session-item {
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 12px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
   white-space: nowrap;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
 }
 
 .session-item:hover {
-  background: #e8f0fe;
+  background: #f3f0ff;
+  border-color: #c4b5fd;
+  box-shadow: 0 2px 8px rgba(118, 75, 162, 0.1);
 }
 
 .session-item.active {
-  background: #d0e4ff;
+  background: linear-gradient(135deg, #f3f0ff, #ede9fe);
+  border-color: #a78bfa;
   font-weight: 500;
+  box-shadow: 0 2px 8px rgba(118, 75, 162, 0.15);
 }
 
 .session-title {
@@ -526,23 +499,23 @@ onMounted(() => {
 }
 
 .session-toggle {
-  width: 24px;
+  width: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   background: #f0f2f5;
   color: #909399;
-  font-size: 12px;
+  font-size: 13px;
   user-select: none;
   border-right: 1px solid #e4e7ed;
+  transition: background 0.2s;
 }
 
 .session-toggle:hover {
   background: #e4e7ed;
 }
 
-/* 聊天区 */
 .chat-area {
   flex: 1;
   display: flex;
@@ -550,116 +523,131 @@ onMounted(() => {
   min-width: 0;
 }
 
-.panel-header {
-  padding: 12px 16px;
+.chat-header {
+  padding: 14px 20px;
   border-bottom: 1px solid #e4e7ed;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #fff;
 }
 
-.panel-title {
-  font-weight: 600;
-  font-size: 15px;
+.chat-title {
+  font-weight: 700;
+  font-size: 17px;
+  color: #303133;
 }
 
-.panel-messages {
+.chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .empty-chat {
   text-align: center;
   color: #909399;
-  margin-top: 60px;
+  margin-top: 80px;
 }
 
 .empty-chat .hint {
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 13px;
+  margin-top: 6px;
 }
 
 .msg-row {
   display: flex;
-  gap: 8px;
-  max-width: 100%;
+  gap: 10px;
+  max-width: 75%;
 }
 
 .msg-row.user {
   flex-direction: row-reverse;
+  align-self: flex-end;
+}
+
+.msg-row.assistant {
+  align-self: flex-start;
 }
 
 .msg-avatar {
-  font-size: 20px;
+  font-size: 24px;
   flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.msg-row.user .msg-avatar {
+  background: #409eff;
+}
+
+.msg-row.assistant .msg-avatar {
+  background: #f0f2f5;
 }
 
 .msg-bubble {
-  padding: 8px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.5;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.65;
   word-break: break-word;
-  max-width: 300px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  position: relative;
+  white-space: pre-wrap;
 }
 
 .msg-bubble.markdown-body :deep(p) {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 .msg-bubble.markdown-body :deep(p:last-child) {
   margin-bottom: 0;
 }
 .msg-bubble.markdown-body :deep(pre) {
-  background: #e8ecf1;
-  border-radius: 6px;
-  padding: 8px;
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 12px;
   overflow-x: auto;
-  margin: 6px 0;
-  font-size: 12px;
+  margin: 8px 0;
 }
 .msg-bubble.markdown-body :deep(code) {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 12px;
+  font-size: 13px;
 }
 .msg-bubble.markdown-body :deep(ul),
 .msg-bubble.markdown-body :deep(ol) {
-  padding-left: 18px;
-  margin: 4px 0;
+  padding-left: 20px;
+  margin: 6px 0;
 }
 .msg-bubble.markdown-body :deep(blockquote) {
-  border-left: 2px solid #d0d7de;
-  padding-left: 10px;
-  color: #656d76;
-  margin: 6px 0;
+  border-left: 3px solid #dfe2e5;
+  padding-left: 12px;
+  color: #6a737d;
+  margin: 8px 0;
 }
 
 .msg-row.user .msg-bubble {
-  background: #409eff;
+  background: linear-gradient(135deg, #409eff, #5b7fff);
   color: #fff;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
 }
 
 .msg-row.assistant .msg-bubble {
-  background: #f0f2f5;
+  background: #fff;
   color: #303133;
-  border-bottom-left-radius: 4px;
+  border: 1px solid #e8ecf1;
+  border-bottom-left-radius: 6px;
 }
 
 .msg-bubble.typing {
   color: #909399;
-}
-
-.cursor {
-  animation: blink 1s infinite;
-}
-
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  font-style: italic;
 }
 
 .dots::after {
@@ -743,8 +731,55 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.panel-input {
-  padding: 10px;
+.chat-input {
+  padding: 12px 20px;
   border-top: 1px solid #e4e7ed;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  background: #fff;
+}
+
+.input-field {
+  flex: 1;
+}
+
+.input-field :deep(textarea) {
+  border-radius: 12px !important;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  resize: none !important;
+  border-color: #e4e7ed !important;
+  transition: border-color 0.2s;
+}
+
+.input-field :deep(textarea):focus {
+  border-color: #a78bfa !important;
+  box-shadow: 0 0 0 2px rgba(118, 75, 162, 0.1) !important;
+}
+
+.send-btn {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.send-btn:not(:disabled):hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(118, 75, 162, 0.35);
+}
+
+.send-icon {
+  line-height: 1;
+  font-weight: 700;
 }
 </style>

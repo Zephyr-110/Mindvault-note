@@ -2,6 +2,9 @@ package org.example.note.document.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.common.ai.JavaAndPythonContract.DeleteDocumentsEmbeddingDTO;
+import org.example.common.ai.JavaAndPythonContract.ToEmbeddingDocumentsDTO;
+import org.example.common.ai.client.PythonVectorClient;
 import org.example.common.annotation.CheckOwner;
 import org.example.common.annotation.CheckResource;
 import org.example.common.logincheck.UserContext;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -29,7 +33,7 @@ import java.util.List;
 public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentMapper documentMapper;
-
+    private final PythonVectorClient pythonVectorClient;
     private final CategoryMapper categoryMapper;
 
     @Transactional
@@ -53,6 +57,18 @@ public class DocumentServiceImpl implements DocumentService {
         //判断前端是否传入标签，如果有，则插入
         if(createDocumentDTO.getTagIds() != null && !createDocumentDTO.getTagIds().isEmpty()){
             documentMapper.insertDocumentTags(document.getId(), createDocumentDTO.getTagIds());
+        }
+        //创建文档向量
+        try {
+            pythonVectorClient.toEmbeddingDocuments(
+                    new ToEmbeddingDocumentsDTO(document.getId().toString(),
+                            UserContext.getUserId().toString(),
+                            "note",
+                            document.getTitle(),
+                            document.getContent(),
+                            (int) document.getCreateTime().atZone(ZoneOffset.UTC).toEpochSecond()));
+        } catch (Exception e) {
+            log.error("创建文档向量失败");
         }
         //因为是创建文档，所以这次的更改时间也应该是创建时间
         return new DocumentVO(document.getId(), document.getTitle(), document.getContent(), document.getCategoryId(), document.getUserId(), document.getCreateTime(), document.getCreateTime(), null);
@@ -159,6 +175,18 @@ public class DocumentServiceImpl implements DocumentService {
                  documentMapper.insertDocumentTags(updateDocumentDTO.getDocumentId(), updateDocumentDTO.getTagIds());  // 再插新的
              }
         }
+        // 更新文档向量
+         try {
+             pythonVectorClient.updateDocumentsEmbedding(
+                     new ToEmbeddingDocumentsDTO(document.getId().toString(),
+                             UserContext.getUserId().toString(),
+                             "note",
+                             updateDocumentDTO.getTitle(),
+                             updateDocumentDTO.getContent(),
+                             (int) document.getCreateTime().atZone(ZoneOffset.UTC).toEpochSecond()));
+         } catch (Exception e) {
+             log.error("更新文档向量失败");
+         }
          //文档更新后记录日志
         log.info("文档 {} 更新成功 - 标题: {}, 目录ID: {}", document.getId(), document.getTitle(), document.getCategoryId());
         //用前边处理过的文档对象包装成VO返回
@@ -185,6 +213,16 @@ public class DocumentServiceImpl implements DocumentService {
              int deleteCount = documentMapper.hardDeleteById(deleteDocumentDTO.getDocumentId());
              log.info("清理{}条文档", deleteCount);
          }
+         // 删除文档向量
+         try {
+             pythonVectorClient.deleteDocumentsEmbedding(
+                     new DeleteDocumentsEmbeddingDTO(
+                             deleteDocumentDTO.getDocumentId().toString(),
+                             "note")
+             );
+         } catch (Exception e) {
+             log.error("删除文档向量失败", e);
+         }
      }
 
     @Override
@@ -196,6 +234,18 @@ public class DocumentServiceImpl implements DocumentService {
         if (document.getIsDeleted() == 1) {
             documentMapper.restoreById(restoreDocumentDTO.getDocumentId());
             log.info("恢复文档{}", document.getTitle());
+            // 恢复文档向量
+            try {
+                pythonVectorClient.toEmbeddingDocuments(
+                        new ToEmbeddingDocumentsDTO(document.getId().toString(),
+                                UserContext.getUserId().toString(),
+                                "note",
+                                document.getTitle(),
+                                document.getContent(),
+                                (int) document.getCreateTime().atZone(ZoneOffset.UTC).toEpochSecond()));
+            } catch (Exception e) {
+                log.error("恢复文档向量失败");
+            }
         }
     }
 

@@ -1,20 +1,17 @@
 import os
 from typing import Generator
 
-import httpx
 from pymilvus import MilvusClient
 import requests
 import json
-
 
 from main.python.models.chat_message import ChatMessage
 from main.python.models.chat_request import ChatRequest
 from main.python.common.vector.vector_util import VectorUtil
 
+
 class AgentMapper:
-
-    # ========== 类变量（只放常量，不放需要初始化的对象）==========
-
+    # ========== 类变量 ==========
     BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     MODEL = "deepseek-v4-pro"
 
@@ -24,7 +21,7 @@ class AgentMapper:
     2. 根据笔记内容回答问题
     3. 搜索和推荐相关的笔记、帖子
     4. 提供写作建议和思路
-    
+
     注意：笔记只能搜索自己的笔记，帖子是都可以看的，千万不要越权搜索。
 
     请用中文回答，语气友好专业。如果用户的问题和他们的笔记无关，也能正常搜索或者聊天。
@@ -75,8 +72,7 @@ class AgentMapper:
         }
     ]
 
-    # ========== 实例初始化（需要运行时环境的东西放这里）==========
-
+    # ========== 实例初始化 ==========
     def __init__(self):
         self.tool_map = {
             "search_notes": self.search_notes,
@@ -86,11 +82,59 @@ class AgentMapper:
         self.client = MilvusClient()
         self._init_collections()
 
-        self.API_KEY = os.getenv("OPENAI_API_KEY")
+        # ========== 🔍 关键修复 + 诊断：API_KEY 加载 ==========
+        raw_key = os.getenv("OPENAI_API_KEY")
+        print("=" * 80)
+        print(f"🚨 [AgentMapper.__init__] 原始 API_KEY: {repr(raw_key)}")
+
+        if raw_key is None:
+            print("❌ [AgentMapper.__init__] 环境变量 OPENAI_API_KEY 不存在！")
+            # 尝试从 .env 文件手动加载
+            try:
+                from dotenv import load_dotenv
+                from pathlib import Path
+                env_path = Path(__file__).parent.parent.parent.parent / ".env"
+                print(f"🔄 尝试从 {env_path} 加载 .env...")
+                if env_path.exists():
+                    load_dotenv(env_path, override=True)
+                    raw_key = os.getenv("OPENAI_API_KEY")
+                    print(f"🔄 重新加载后 API_KEY: {repr(raw_key)}")
+            except Exception as e:
+                print(f"❌ 加载 .env 失败: {e}")
+
+        if raw_key is None:
+            raise RuntimeError("OPENAI_API_KEY 环境变量未设置，请检查 .env 文件或系统环境变量")
+
+        # 清洗 API_KEY：去除首尾空格、换行、以及任何非 ASCII 字符
+        self.API_KEY = "".join(c for c in raw_key.strip() if ord(c) < 128)
+
+        print(f"🚨 [AgentMapper.__init__] 清洗后 API_KEY 长度: {len(self.API_KEY)}")
+        print(f"🚨 [AgentMapper.__init__] 清洗后 API_KEY 前10位: {self.API_KEY[:10]}...")
+
+        # 检查是否还有非 ASCII 字符
+        non_ascii = [(i, c, hex(ord(c))) for i, c in enumerate(self.API_KEY) if ord(c) > 127]
+        if non_ascii:
+            print(f"⚠️ 警告：清洗后仍有非 ASCII 字符: {non_ascii}")
+        else:
+            print("✅ API_KEY 全部为合法 ASCII 字符")
+
+        # 构建 Headers
         self.headers = {
             "Authorization": f"Bearer {self.API_KEY}",
             "Content-Type": "application/json"
         }
+
+        # 验证 Header 合法性
+        auth_header = self.headers["Authorization"]
+        print(f"🚨 [AgentMapper.__init__] Authorization Header 长度: {len(auth_header)}")
+        try:
+            auth_header.encode('latin-1')
+            print("✅ Authorization Header 可以成功编码为 latin-1")
+        except UnicodeEncodeError as e:
+            print(f"❌ Authorization Header 编码失败: {e}")
+            raise RuntimeError(f"Authorization Header 包含非法字符: {e}")
+
+        print("=" * 80)
 
         self.vector_util = VectorUtil()
 
@@ -112,20 +156,15 @@ class AgentMapper:
         except Exception:
             pass
 
-
-
-
-
     # ========== 工具执行 ==========
     def search_notes(self, query: str, user_id: str, top_k: int = 5) -> str:
         vector = self.vector_util.get_embedding(query)
-        # 搜索相关笔记
         results = self.client.search(
-            collection_name = "documents",
-            data = [vector],
-            limit = top_k,
-            filter = f'source_type == "note" and user_id == "{user_id}"',
-            output_fields = ["id", "text"]
+            collection_name="documents",
+            data=[vector],
+            limit=top_k,
+            filter=f'source_type == "note" and user_id == "{user_id}"',
+            output_fields=["id", "text"]
         )
         hits = results[0]
         items = []
@@ -135,12 +174,10 @@ class AgentMapper:
                 "text": hit["entity"]["text"][:200],
                 "score": hit["distance"]
             })
-        # 返回结果
         return f"找到以下相关笔记：{items}"
 
     def search_posts(self, query: str, top_k: int = 5) -> str:
         vector = self.vector_util.get_embedding(query)
-        # 搜索相关帖子
         result = self.client.search(
             collection_name="documents",
             data=[vector],
@@ -156,7 +193,6 @@ class AgentMapper:
                 "text": hit["entity"]["text"][:200],
                 "score": hit["distance"]
             })
-        # 返回结果
         return f"找到以下相关帖子：{items}"
 
     def search_memories(self, text: str, user_id: str, session_id: str, top_k: int = 5) -> str:
@@ -172,33 +208,30 @@ class AgentMapper:
         if not hits:
             return ""
         lines = []
-        for i,hit in enumerate(hits,1):
+        for i, hit in enumerate(hits, 1):
             text = hit["entity"]["text"]
             lines.append(f"记忆{i}: {text}")
         return "\n".join(lines)
 
     # 调用模型，返回ChatMessage对象
     def chat(self, messages: list[ChatMessage], tools=None) -> ChatMessage:
-        # 构建请求数据
         data = {
             "model": self.MODEL,
             "messages": [msg.model_dump() for msg in messages],
             "temperature": 0.7
         }
-        # 如果提供了工具，添加到请求数据中
         if tools:
             data["tools"] = tools
             data["tool_choice"] = "auto"
-        # 发送请求
+
+        print(f"🚀 [chat] 正在发起非流式请求...")
         response = requests.post(f"{self.BASE_URL}/chat/completions", headers=self.headers, json=data)
-        # 检查是否成功返回响应
         response.raise_for_status()
         return ChatMessage(**response.json()["choices"][0]["message"])
 
     MAX_LOOPS = 5
 
-    def chat_agent(self, request: ChatRequest ) -> str:
-        # 初始化系统提示词
+    def chat_agent(self, request: ChatRequest) -> str:
         system_prompt = ChatMessage(
             role="system",
             content=self.SYSTEM_PROMPT)
@@ -206,13 +239,12 @@ class AgentMapper:
         if request.user_id and request.session_id:
             history = self.search_memories(request.messages[-1].content, request.user_id, request.session_id, 5)
         system_prompt.content += f"\n{history}"
-        # 系统提示词插到消息列表开头
-        messages = [system_prompt]  + request.messages
+        messages = [system_prompt] + request.messages
         loop_count = 0
         while loop_count < self.MAX_LOOPS:
             loop_count += 1
             print(f"= = =第 {loop_count} 次循环= = =")
-            response = self.chat(messages, tools = self.tools)
+            response = self.chat(messages, tools=self.tools)
 
             if response.tool_calls:
                 tool_calls = response.tool_calls
@@ -227,9 +259,9 @@ class AgentMapper:
                     result = self.tool_map[func_name](**arguments)
 
                     messages.append(ChatMessage(
-                        role = "tool",
-                        tool_call_id = tool_call["id"],
-                        content = result
+                        role="tool",
+                        tool_call_id=tool_call["id"],
+                        content=result
                     ))
                     print(f"工具 {func_name} 返回结果：{result}")
 
@@ -240,103 +272,122 @@ class AgentMapper:
                 return final_answer
         return "达到最大循环次数，未能完成任务。"
 
-    def chat_stream(self, messages, tools = None) -> Generator[dict, None, None]:
-        # 构建请求数据
+    def chat_stream(self, messages, tools=None) -> Generator[dict, None, None]:
         data = {
             "model": self.MODEL,
             "messages": [msg.model_dump() for msg in messages],
             "temperature": 0.7,
             "stream": True
         }
-        # 如果提供了工具，添加到请求数据中
         if tools:
             data["tools"] = tools
             data["tool_choice"] = "auto"
-        # 发送请求,拿到流式响应
-        with httpx.Client(timeout=httpx.Timeout(60.0, connect=5.0)) as client:
-            with client.stream(
-                "POST",
+
+        # ========== 🔍 关键诊断：打印请求信息 ==========
+        print("=" * 80)
+        print("🚀 [chat_stream] 准备发起流式请求")
+        print(f"   URL: {self.BASE_URL}/chat/completions")
+        print(f"   Model: {self.MODEL}")
+        print(f"   Messages 数量: {len(messages)}")
+        print(f"   Tools: {'有' if tools else '无'}")
+        print(f"   Authorization Header 长度: {len(self.headers['Authorization'])}")
+        print("=" * 80)
+
+        # ========== 🔍 关键修复：捕获所有异常，绝不吞掉 ==========
+        try:
+            response = requests.post(
                 f"{self.BASE_URL}/chat/completions",
                 headers=self.headers,
-                json=data
-            ) as response:
-                response.raise_for_status()
-                print(f"[chat_stream] 响应头: Transfer-Encoding={response.headers.get('Transfer-Encoding')}, Content-Type={response.headers.get('Content-Type')}")
-                # 初始化消息文本
-                full_content = ""
-                # 初始化工具调用缓冲区
-                tool_calls_buffer = {}
-                # 遍历流式响应
-                line_count = 0
-                for line in response.iter_lines():
-                    line_count += 1
-                    print(f"[chat_stream] 收到第{line_count}行: {line[:120]}")
-                    if not line:
-                        continue
-                    if isinstance(line, bytes):
-                        line = line.decode("utf-8")
-                    if line.startswith("data: "):
-                        line = line[6:]
-                    if line == "[DONE]":
-                        yield {"type": "done", "full_content": full_content}
-                        return
-                    chunk_data = json.loads(line)
-                    # 拿到delta事件中的内容
-                    delta = chunk_data["choices"][0].get("delta", {})
-                    # 如果有推理内容（DeepSeek思考链），返回reasoning事件
-                    if delta.get("reasoning_content"):
-                        print(f"[chat_stream] 推理: {delta['reasoning_content']}")
-                        yield {"type": "reasoning",
-                               "text": delta["reasoning_content"]}
-                    # 如果内容不为空，则说明没有调用工具，直接返回
-                    if delta.get("content"):
-                        # 拼接消息文本
-                        full_content += delta["content"]
-                        print(f"[chat_stream] 内容: {delta['content']}")
-                        # 返回content事件，吐字
-                        yield {"type": "content",
-                            "text": delta["content"]}
-                    # 如果调用工具，需要缓冲工具调用信息
-                    if delta.get("tool_calls"):
-                        # 遍历工具栏
-                        for tc in delta["tool_calls"]:
-                            # 拿到工具调用索引
-                            index = tc["index"]
-                            # 如果索引不在缓冲区中，初始化一个空字典
-                            if index not in tool_calls_buffer:
-                                tool_calls_buffer[index] = {
-                            "id": "",
-                            "type": "function",
-                            "function": {
-                                "name": "",
-                                "arguments": ""
-                            }
-                        }
-                            # 如果工具调用id不为空，添加到缓冲区
-                            if tc.get("id"):
-                                tool_calls_buffer[index]["id"] = tc["id"]
-                            # 如果工具调用函数名称不为空，添加到缓冲区
-                            if tc.get("function", {}).get("name"):
-                                tool_calls_buffer[index]["function"]["name"] += tc["function"]["name"]
-                            # 如果工具调用参数不为空，添加到缓冲区
-                            if tc.get("function", {}).get("arguments"):
-                                tool_calls_buffer[index]["function"]["arguments"] += tc["function"]["arguments"]
-                    # 拿到模型完成调用工具的原因
-                    finish_reason = chunk_data["choices"][0].get("finish_reason")
-                    # 如果模型调用工具，返回工具调用信息
-                    if finish_reason == "tool_calls":
-                        print(f"[chat_stream] 工具调用: {list(tool_calls_buffer.values())}")
-                        yield {"type": "tool_calls",
-                       "calls": list(tool_calls_buffer.values())}
-                        return
-                    # 如果模型停止输出(或其他结束原因)，返回完成事件
-                    elif finish_reason is not None:
-                        print(f"[chat_stream] 完成: {finish_reason}")
-                        yield {"type": "done",
-                            "full_content": full_content}
-                        return
+                json=data,
+                stream=True,
+                timeout=(5, 60)
+            )
+            response.raise_for_status()
+            print(f"✅ [chat_stream] 响应状态码: {response.status_code}")
+            print(f"   Transfer-Encoding: {response.headers.get('Transfer-Encoding')}")
+            print(f"   Content-Type: {response.headers.get('Content-Type')}")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ [chat_stream] 请求失败: {type(e).__name__}: {e}")
+            yield {"type": "error", "message": f"请求失败: {type(e).__name__}: {str(e)}"}
+            return
 
-    def stream_chat_agent(self, request: ChatRequest ) -> Generator[dict, None, None]:
+        # 初始化消息文本
+        full_content = ""
+        # 初始化工具调用缓冲区
+        tool_calls_buffer = {}
+        # 遍历流式响应
+        line_count = 0
+
+        try:
+            for line in response.iter_lines():
+                line_count += 1
+                if line_count == 1:
+                    print(f"[chat_stream] 收到第1行: {line[:150]}")
+                if not line:
+                    continue
+                line = line.decode("utf-8")
+                if line.startswith("data: "):
+                    line = line[6:]
+                if line == "[DONE]":
+                    yield {"type": "done", "full_content": full_content}
+                    return
+                chunk_data = json.loads(line)
+                # 拿到delta事件中的内容
+                delta = chunk_data["choices"][0].get("delta", {})
+                # 如果有推理内容（DeepSeek思考链），返回reasoning事件
+                if delta.get("reasoning_content"):
+                    yield {"type": "reasoning",
+                           "text": delta["reasoning_content"]}
+                # 如果内容不为空，则说明没有调用工具，直接返回
+                if delta.get("content"):
+                    # 拼接消息文本
+                    full_content += delta["content"]
+                    # 返回content事件，吐字
+                    yield {"type": "content",
+                           "text": delta["content"]}
+                # 如果调用工具，需要缓冲工具调用信息
+                if delta.get("tool_calls"):
+                    # 遍历工具栏
+                    for tc in delta["tool_calls"]:
+                        # 拿到工具调用索引
+                        index = tc["index"]
+                        # 如果索引不在缓冲区中，初始化一个空字典
+                        if index not in tool_calls_buffer:
+                            tool_calls_buffer[index] = {
+                                "id": "",
+                                "type": "function",
+                                "function": {
+                                    "name": "",
+                                    "arguments": ""
+                                }
+                            }
+                        # 如果工具调用id不为空，添加到缓冲区
+                        if tc.get("id"):
+                            tool_calls_buffer[index]["id"] = tc["id"]
+                        # 如果工具调用函数名称不为空，添加到缓冲区
+                        if tc.get("function", {}).get("name"):
+                            tool_calls_buffer[index]["function"]["name"] += tc["function"]["name"]
+                        # 如果工具调用参数不为空，添加到缓冲区
+                        if tc.get("function", {}).get("arguments"):
+                            tool_calls_buffer[index]["function"]["arguments"] += tc["function"]["arguments"]
+                # 拿到模型完成调用工具的原因
+                finish_reason = chunk_data["choices"][0].get("finish_reason")
+                # 如果模型调用工具，返回工具调用信息
+                if finish_reason == "tool_calls":
+                    yield {"type": "tool_calls",
+                           "calls": list(tool_calls_buffer.values())}
+                    return
+                # 如果模型停止输出(或其他结束原因)，返回完成事件
+                elif finish_reason is not None:
+                    yield {"type": "done",
+                           "full_content": full_content}
+                    return
+        except Exception as e:
+            print(f"❌ [chat_stream] 流解析失败: {type(e).__name__}: {e}")
+            yield {"type": "error", "message": f"流解析失败: {type(e).__name__}: {str(e)}"}
+            return
+
+    def stream_chat_agent(self, request: ChatRequest) -> Generator[dict, None, None]:
         # 初始化系统提示词
         system_prompt = ChatMessage(role="system", content=self.SYSTEM_PROMPT)
         # 初始化会话历史
@@ -345,7 +396,7 @@ class AgentMapper:
         if request.user_id and request.session_id:
             # 搜索会话历史
             history = self.search_memories(request.messages[-1].content, request.user_id, request.session_id, 5)
-        # 系统提示词后添加会话历史
+        # 系统提示此后添加会话历史
         system_prompt.content += f"\n{history}"
         # 将用户新消息插到最后
         messages = [system_prompt] + request.messages
@@ -361,19 +412,23 @@ class AgentMapper:
             # 调用模型，返回流
             response = self.chat_stream(messages, tools=self.tools)
             # 遍历流，解析每个delta事件
-            had_tool_calls = False
             for chunk in response:
+                # ========== 🔍 关键修复：处理错误事件 ==========
+                if chunk.get("type") == "error":
+                    print(f"❌ [stream_chat_agent] 收到错误: {chunk}")
+                    yield chunk
+                    return
+
                 # 如果是内容事件，直接返回内容
                 if chunk.get("type") == "content":
                     yield chunk
                 # 如果是工具调用事件，需要缓冲工具调用信息
                 elif chunk.get("type") == "tool_calls":
-                    had_tool_calls = True
                     # 拼接工具调用信息
                     assistant_msg = ChatMessage(
-                        role = "assistant",
-                        content = "",
-                        tool_calls = chunk["calls"]
+                        role="assistant",
+                        content="",
+                        tool_calls=chunk["calls"]
                     )
                     # 添加到消息列表
                     messages.append(assistant_msg)
@@ -394,21 +449,18 @@ class AgentMapper:
                         result = self.tool_map[func_name](**arguments)
                         # 返回工具调用结果事件以及内容
                         yield {"type": "tool_result",
-                        "name": func_name,
-                        "result": result}
+                               "name": func_name,
+                               "result": result}
                         # 添加到消息列表
                         messages.append(ChatMessage(
-                            role = "tool",
-                            tool_call_id = tc["id"],
-                            content = result
+                            role="tool",
+                            tool_call_id=tc["id"],
+                            content=result
                         ))
                 # 如果是完成事件，直接返回完成事件
                 elif chunk.get("type") == "done":
-                    # 如果是最后一轮(无工具调用)，直接返回完成事件
-                    if not had_tool_calls:
-                        yield chunk
-                        return
-                    # 如果有工具调用，忽略本轮done，继续while循环
+                    yield chunk
+                    return
                 # 其他事件，直接返回
                 else:
                     yield chunk

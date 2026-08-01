@@ -1,4 +1,4 @@
-package org.example.mindvaultaiapi.dto;
+package org.example.common.ai.JavaAndPythonContract;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

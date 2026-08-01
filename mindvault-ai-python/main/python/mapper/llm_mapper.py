@@ -1,12 +1,9 @@
 import json
-from typing import Generator, List
-from sentence_transformers import SentenceTransformer, util
+from typing import Generator
 
 from main.python.models.chat_request import ChatRequest
 from main.python.models.chat_response import ChatResponse
 from main.python.repository.llm_repository import llm_repository
-from main.python.models.rerank_dto import RerankDTO
-from main.python.models.chat_message import ChatMessage
 
 
 
@@ -22,9 +19,6 @@ SYSTEM_PROMPT = """你是一个智能笔记助手，名叫 MindVault AI。
 
 
 class ChatMapper:
-
-
-    model = SentenceTransformer("shibing624/text2vec-base-chinese", local_files_only=True)
 
     """
     负责将用户请求转换为LLM的messages字段输入格式
@@ -99,62 +93,6 @@ class ChatMapper:
     def stream_chat(self, request: ChatRequest) -> Generator[str, None, None]:
         # 调用build_messages方法，将用户请求转换为LLM的messages字段输入格式
         messages = self.build_messages(request, SYSTEM_PROMPT)
-        # 调用LLM的stream_chat方法，返回一个生成器，用于逐个返回结果
-        for chunk in llm_repository.stream_chat(messages):
-            # 如果chunk为None，则返回一个结束消息，并结束生成器，即结束标志
-            if chunk is None:
-                yield f"data: {json.dumps({'done': True})}\n\n"
-                break
-            # 如果chunk以ERROR:开头，则返回一个错误消息，并结束生成器，即错误标志
-            if chunk.startswith("ERROR:"):
-                yield f"data: {json.dumps({'error': chunk[6:]})}\n\n"
-                break
-            # 否则，返回一个正常消息
-            yield f"data: {json.dumps({'content': chunk})}\n\n"
-
-
-
-
-
-    def rerank(self, request: RerankDTO) -> Generator[str, None, None]:
-        # 创建一个空列表，用于存储资源
-        resources = []
-        for item in request.sources:
-            # 根据资源类型，生成对应的描述
-            if item.type == "post":
-                doc = f"[帖子] {item.title}: {item.content}"
-            elif item.type == "note":
-                doc = f"[笔记] {item.title}: {item.content}"
-            else:
-                doc = item.content
-            # 将描述添加到资源列表中
-            resources.append(doc)
-        # 把query向量化
-        query_embedding = self.model.encode(request.query)
-        # 把资源列表向量化
-        doc_embeddings = self.model.encode(resources)
-        # 计算相似度，获取相似度分数
-        scores = util.cos_sim(query_embedding, doc_embeddings)[0]
-        # 创建一个空列表，用于存储排序后的资源
-        ranked = []
-        for i, score in enumerate(scores):
-            # 拿到对应索引的资源
-            item = request.sources[i]
-            # 将相似度和资源绑定，然后添加到列表中
-            ranked.append((score.item(), item))
-        # 对资源进行排序，降序
-        ranked.sort(key=lambda x: x[0], reverse=True)
-        top_k = request.top_k
-        # 只取前top_k个资源
-        ranked = ranked[:top_k]
-        # 创建一个系统提示，用于告诉LLM
-        search_prompt = SYSTEM_PROMPT + "\n\n## 搜索结果："
-        for item in ranked:
-            search_prompt += f"\n\n### 资源 {item[1].type} {item[1].id} {item[1].title}\n{item[1].content}\n"
-        # 创建两个消息，用于告诉LLM
-        message1 = ChatMessage(role="system", content=search_prompt)
-        message2 = ChatMessage(role="user", content=request.query)
-        messages = [message1.model_dump(), message2.model_dump()]
         # 调用LLM的stream_chat方法，返回一个生成器，用于逐个返回结果
         for chunk in llm_repository.stream_chat(messages):
             # 如果chunk为None，则返回一个结束消息，并结束生成器，即结束标志

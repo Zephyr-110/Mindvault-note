@@ -96,6 +96,8 @@ services:
       LLM_MODEL: ${LLM_MODEL:-qwen-plus}
       DASHSCOPE_API_KEY: ${DASHSCRIPT_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - milvus_data:/app/milvus_data
     ports:
       - "8000:8000"
 
@@ -103,3 +105,4 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  milvus_data:

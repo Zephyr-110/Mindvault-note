@@ -217,6 +217,72 @@ public Result<UserVO> register(@Valid @RequestBody RegisterDTO dto) {
 
 ---
 
+## 🚀 更新日志
+
+### v1.1.0 — 流式 Agent 对话 & 智能会话管理 (2025-08-01)
+
+#### ⚡ 流式 Agent 对话
+
+Agent 对话从非流式升级为 SSE 流式，实时展示推理过程：
+
+```
+用户发送消息
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  💭 思考中...                        │  ← 可折叠思考卡片
+│  ┌─────────────────────────────────┐ │
+│  │ 我需要先搜索用户的笔记...        │ │  ← 推理过程
+│  └─────────────────────────────────┘ │
+│  🔍 正在搜索笔记："Java Stream"      │  ← 工具调用
+│  ✅ 已完成搜索，找到 3 条相关笔记     │  ← 工具结果
+│                                      │
+│  Java Stream 是 Java 8 引入的...     │  ← 流式回复
+└─────────────────────────────────────┘
+```
+
+| SSE 事件 | 前端效果 | 说明 |
+|-----------|---------|------|
+| `session_created` | 刷新会话列表 | 新会话创建通知 |
+| `thinking` | 💭 思考中... | 模型开始推理 |
+| `reasoning` | 思考卡片内容 | 推理过程 |
+| `tool_call` | 🔍 正在搜索... | 调用工具 |
+| `tool_result` | ✅ 已完成搜索 | 工具返回 |
+| `content` | 流式打字 | 最终回复 |
+| `done` | 落库 + 向量 | 回复完成 |
+
+**数据流：** `Python (ReAct Loop) —SSE→ Java (透传) —SseEmitter→ 前端 (实时渲染)`
+
+#### 🧠 智能会话管理
+
+- **自动创建会话**：发送消息时不带 `sessionId`，后端自动创建会话并调用 LLM 生成标题
+- **`session_created` 事件**：新会话创建后第一时间通知前端，前端即时刷新侧边栏
+- **双击编辑标题**：侧边栏会话标题支持双击行内编辑，Enter 保存 / Esc 取消
+- **用户校验**：修改标题时校验用户身份，仅会话所属用户可操作
+- **`PUT /ai/update-session-title`**：新接口，返回更新后的会话列表
+
+#### 🐛 Bug 修复
+
+| Bug | 原因 | 修复 |
+|-----|------|------|
+| Agent 返回空内容 | `done` 事件后立即退出循环 | 新增 `had_tool_calls` 标志位 |
+| 落库 `user_id` 为空 | 异步回调中 `ThreadLocal` 丢失 | 提前捕获 `userId` 传入重载方法 |
+| 前端 SSE 解析失败 | `data:` 空格不匹配 | 统一 `startsWith("data:")` + `trim()` |
+| CSS 编译报错 | diff 合并残留 | 清理孤儿属性和多余花括号 |
+
+#### 🔧 关键改动文件
+
+| 文件 | 改动 |
+|------|------|
+| `PythonHttpClient.java` | `toStreamAgent` 新增 `initialEvent` 参数 |
+| `PythonAIChatClient.java` | `agentChatStream` 透传 `initialEvent` |
+| `AIServiceImpl.java` | 冻结 `isNewSession` → `createSession` → `session_created` |
+| `agent_mapper.py` | 修复 Agent 循环提前退出 |
+| `api/index.js` | 新增 `aiUpdateSessionTitle` API |
+| `AIChat.vue` / `AIChatPanel.vue` | 流式 UI + 会话编辑 + `session_created` 处理 |
+
+---
+
 ## 📝 后续计划
 
 - [ ] 笔记协作编辑 (WebSocket 实时同步)

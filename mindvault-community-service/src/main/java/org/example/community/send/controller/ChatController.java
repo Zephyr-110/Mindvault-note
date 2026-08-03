@@ -10,6 +10,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,9 +23,9 @@ public class ChatController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/chat.send")
-    public void handleChat(@Payload SendMessageDTO dto) {
+    public void handleChat(@Payload SendMessageDTO dto, Principal principal) {
         // WebSocket 不走 HTTP 拦截器，UserContext 为空，必须用客户端传的 senderId
-        Long senderId = dto.getSenderId();
+        Long senderId = Long.parseLong(principal.getName());
         try {
             MessageVO messageVO = messageService.sendInternal(senderId, dto);
 

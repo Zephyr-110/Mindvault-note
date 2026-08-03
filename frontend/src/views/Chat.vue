@@ -165,7 +165,6 @@ async function sendMsg() {
   scrollToBottom()
 
   const msg = {
-    senderId: myUserId,
     receiverId: otherUserId.value,
     content: content
   }

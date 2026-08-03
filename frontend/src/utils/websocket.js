@@ -1,6 +1,7 @@
 import { Stomp } from '@stomp/stompjs'
 
-const BASE_URL = 'ws://localhost:8082'
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const BASE_URL = `${protocol}//${window.location.host}`
 
 function getToken() {
   const userInfo = localStorage.getItem('userInfo')

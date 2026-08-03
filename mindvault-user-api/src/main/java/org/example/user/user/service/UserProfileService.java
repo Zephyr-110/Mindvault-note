@@ -7,6 +7,7 @@ import org.example.user.user.vo.UserProfileVO;
 import org.example.user.user.vo.UserSearchVO;
 
 import java.util.List;
+import java.util.Map;
 
 public interface UserProfileService {
 
@@ -17,4 +18,6 @@ public interface UserProfileService {
     void updateUserProfile(UpdateUserProfileDTO dto);
 
     PageResult<UserSearchVO> searchUserProfile(SearchUserDTO searchUserDTO);
+
+    Map<Long, UserProfileVO> getUserProfileByIds(List<Long> userIds);
 }

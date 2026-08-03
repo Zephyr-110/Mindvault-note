@@ -1,5 +1,6 @@
 package org.example.user.user.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.example.common.logincheck.UserContext;
@@ -19,7 +20,9 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -108,5 +111,26 @@ public class UserProfileServiceImpl implements UserProfileService {
         }).toList();
         return new PageResult<>(total, searchUserDTO.getPage(), searchUserDTO.getSize(), voList);
     }
+
+    @Override
+    public Map<Long, UserProfileVO> getUserProfileByIds(List<Long> userIds) {
+        // 根据传进来的用户ID列表查询用户信息列表
+        List<UserProfile> userProfiles = userProfileMapper.selectList(
+                new LambdaQueryWrapper<UserProfile>()
+                        .in(UserProfile::getUserId, userIds));
+        // 列表转换为Map，key为用户ID，value为用户信息VO对象
+        return userProfiles.stream()
+                .collect(Collectors.toMap(UserProfile::getUserId, p -> {
+                    UserProfileVO vo = new UserProfileVO();
+                    vo.setNickname(p.getNickname());
+                    vo.setAvatar(p.getAvatar());
+                    vo.setGender(p.getGender());
+                    vo.setAge(p.getAge());
+                    vo.setRegion(p.getRegion());
+                    vo.setBio(p.getBio());
+                    return vo;
+                }));
+    }
+
 
 }

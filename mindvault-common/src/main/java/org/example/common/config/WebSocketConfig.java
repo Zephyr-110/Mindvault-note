@@ -3,6 +3,7 @@ package org.example.common.config;
 import lombok.RequiredArgsConstructor;
 import org.example.common.logincheck.JwtUtil;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtil jwtUtil;
+    private  final StringRedisTemplate redisTemplate ;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -36,7 +38,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .setHandshakeHandler(new JwtHandshakeHandler())
-                .addInterceptors(new JwtHandshakeInterceptor(jwtUtil));
+                .addInterceptors(new JwtHandshakeInterceptor(jwtUtil, redisTemplate));
     }
 
     /**
@@ -60,6 +62,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private static class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
         private final JwtUtil jwtUtil;
+        private  final StringRedisTemplate redisTemplate ;
 
         @Override
         public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
@@ -78,6 +81,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
             }
             if (token == null || token.isBlank()) {
+                return false;
+            }
+            // 校验黑名单
+            if (Boolean.TRUE.equals(redisTemplate.hasKey("blacklist:" + token))) {
                 return false;
             }
             try {

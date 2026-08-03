@@ -90,7 +90,7 @@ public class AIServiceImpl implements AIService {
             request.setSessionId(session.getId().toString());  // ← 设回去
             //再生成标题（此时 toChatRequest 能正常工作了）
             try {
-                String title = pythonAIChatClient.chat(
+                String title = pythonAIChatClient.agentChat(
                         toChatRequest(request, TITLE_SYSTEM_PROMPT)
                 ).getContent();
                 //更新标题

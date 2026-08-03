@@ -20,11 +20,13 @@ import org.example.community.comment.vo.CommentVO;
 import org.example.common.exception.BusinessException;
 import org.example.common.logincheck.UserContext;
 import org.example.community.likerecord.entity.LikeRecord;
+import org.example.user.user.service.UserProfileService;
 import org.example.user.user.service.UserService;
 import org.example.community.likerecord.mapper.LikeRecordMapper;
 import org.example.community.post.entity.Post;
 import org.example.community.post.mapper.PostMapper;
 import org.example.common.result.PageResult;
+import org.example.user.user.vo.UserProfileVO;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
@@ -32,8 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -43,11 +45,11 @@ public class CommentServiceImpl implements CommentService {
 
 
     private final CommentMapper commentMapper;
-    private final PostMapper postMapper;
     private final UserService userService;
     private final LikeRecordMapper likeRecordMapper;
     private final NotificationService notificationService;
     private final CacheManager cacheManager;
+    private final UserProfileService userProfileService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -99,34 +101,19 @@ public class CommentServiceImpl implements CommentService {
     @CheckComment(value = "id")
     @CheckOwner(@CheckResource(type = "comment", idParam = "id"))
     public void deleteComment(DeleteCommentDTO deleteCommentDTO) {
-        //从切面拿到实体类
+        // 从切面拿到实体类
         Comment comment = ValidatedEntityHolder.get(Comment.class);
-        //提前创建空id列表
-        List<Long> allIds = new ArrayList<>();
-        //递归查询要删除的评论的id
-        collectAllIds(deleteCommentDTO.getId(), allIds);
-        //删除它们的点赞记录
-        if(!allIds.isEmpty()){
-            likeRecordMapper.delete(new LambdaQueryWrapper<LikeRecord>()
-                    .in(LikeRecord::getTargetId, allIds)
-                    .eq(LikeRecord::getTargetType, "comment"));
-        }
-        //删除评论本身
-        commentMapper.delete(new LambdaQueryWrapper<Comment>()
-                .in(Comment::getId, allIds));
+        // 删除该评论的点赞记录
+        likeRecordMapper.delete(new LambdaQueryWrapper<LikeRecord>()
+                .eq(LikeRecord::getTargetId, deleteCommentDTO.getId())
+                .eq(LikeRecord::getTargetType, "comment"));
+        // 删除评论本身
+        commentMapper.deleteById(deleteCommentDTO.getId());
         log.info("用户 {} 删除了条评论", UserContext.getUserId());
-        //删除评论的时候清除帖子的缓存
+        // 清除帖子缓存
         Cache cache = cacheManager.getCache("postDetail");
         if (cache != null) {
             cache.evict(comment.getPostId());
-        }
-    }
-    //递归删除评论，只服务于上边的删除方法
-    private void collectAllIds(Long parentId, List<Long> result){
-        result.add(parentId);
-        List<Comment> children = commentMapper.selectByParentId(parentId);
-        for (Comment child : children) {
-            collectAllIds(child.getId(), result);
         }
     }
 
@@ -136,15 +123,54 @@ public class CommentServiceImpl implements CommentService {
         //获取页码和每页条数
         Page<Comment> page = new Page<>(listCommentDTO.getPage(), listCommentDTO.getSize());
         Page<Comment> result = commentMapper.selectByPostId(page, listCommentDTO.getPostId());
+        // 获取查到的评论id列表
+        List<Long> parentIds = result.getRecords()
+                .stream()
+                .map(Comment::getParentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        // 创建Map，Key为这些评论id，Value为评论实体，为了取父评论ID
+        Map<Long, Comment> parentMap = parentIds.isEmpty()
+                ? Map.of()
+                : commentMapper.selectByIds(parentIds)
+                  .stream()
+                  .collect(Collectors.toMap(Comment::getId, c -> c));
+        // 获取查到的评论的作者列表
+        Set<Long> authorIds = new HashSet<>(result.getRecords()
+                .stream()
+                .map(Comment::getAuthorId)
+                .toList());
+        // 把父评论作者ID添加到作者列表中
+        parentMap.values().forEach(p -> authorIds.add(p.getAuthorId()));
+        // 创建Map，Key为这些作者id，Value为作者信息，为了取作者昵称和头像
+        Map<Long, UserProfileVO> userMap = authorIds.isEmpty()
+                ? Map.of()
+                : userProfileService.getUserProfileByIds(new ArrayList<>(authorIds));
         //提前创建返回值列表
         List<CommentVO> commentVOs = new ArrayList<>();
         //组装返回值列表
         for (Comment comment : result.getRecords()) {
-            String parentNickname = comment.getParentId() != null
-                    ? userService.getNickname(comment.getParentId()) : null;
-            CommentVO commentVO = new CommentVO(comment.getId(), comment.getPostId(), comment.getAuthorId(),
-                    userService.getNickname(comment.getAuthorId()), userService.getAvatar(comment.getAuthorId()),
-                    comment.getParentId(), parentNickname, comment.getContent(), comment.getCreateTime());
+            // 下方条件不满足则为根评论，返回空
+            String parentNickname = null;
+            if (comment.getParentId() != null) {
+                // 如果父评论id存在，则从Map中获取实体类（如果父评论删了，就会不存在）
+                Comment parent = parentMap.get(comment.getParentId());
+                if (parent != null) {
+                    // 如果实体类存在，则从Map中获取作者昵称
+                    UserProfileVO pu = userMap.get(parent.getAuthorId());
+                    parentNickname = pu != null ? pu.getNickname() : null;
+                }
+            }
+            CommentVO commentVO = new CommentVO(
+                    comment.getId(),
+                    comment.getPostId(),
+                    comment.getAuthorId(),
+                    userMap.get(comment.getAuthorId()).getNickname(),
+                    userMap.get(comment.getAuthorId()).getAvatar(),
+                    comment.getParentId(),
+                    parentNickname,
+                    comment.getContent(),
+                    comment.getCreateTime());
             commentVOs.add(commentVO);
         }
         return new PageResult<>(result.getTotal(), listCommentDTO.getPage(), listCommentDTO.getSize(), commentVOs);

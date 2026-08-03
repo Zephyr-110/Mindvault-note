@@ -121,12 +121,12 @@ public class DocumentServiceImpl implements DocumentService {
             if(documentVO.getContent() == null) continue;
             //提取内容
             String content = documentVO.getContent();
-            //先把内容和关键字都转为小写以便于找到准确索引
+            //先把内容和关键字都转为小写，以便于找到准确索引
             String lowerContent = documentVO.getContent().toLowerCase();
             String lowerKeyword = keyword.toLowerCase();
             //搜索到关键字的头尾位置
             int startIndex = lowerContent.indexOf(lowerKeyword);
-            int endIndex = startIndex + keyword.length();
+            int endIndex = startIndex + lowerKeyword.length();
             if (startIndex == -1) {
                 documentVO.setPreview(content.substring(0, Math.min(60, content.length())) + "...");
                 continue;

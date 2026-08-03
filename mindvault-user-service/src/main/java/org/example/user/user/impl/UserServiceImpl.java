@@ -109,6 +109,10 @@ public class UserServiceImpl implements UserService {
     public void logout(LogoutDTO dto) {
         //取出token
         String token = dto.getToken();
+        if (token == null || token.isEmpty()){
+            // 没有token就不加黑名单
+            return;
+        }
         //把token加入黑名单中，并且设置好过期时间
         redis.opsForValue().set("blacklist:" + token, "1",
                 Duration.ofMillis(jwtUtil.getRemainingExpiration(token)));
